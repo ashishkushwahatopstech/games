@@ -8,10 +8,9 @@ ADMIN_EMAIL = "ashishkushwaha88643@gmail.com"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "PLAY_KV_ID_PLACEHOLDER"
-preview_id = "PLAY_KV_PREVIEW_ID_PLACEHOLDER"
+id = "375f31af8c384f73896ae4f607ee2f5e"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "play-db"
-database_id = "PLAY_D1_ID_PLACEHOLDER"
+database_id = "f571b209-2d77-4a88-aec2-51e47803bb7e"

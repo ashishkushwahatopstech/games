@@ -50,7 +50,7 @@ export default function App() {
 
   const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://127.0.0.1:8787" 
-    : "https://play-backend.aktechstudio.workers.dev";
+    : "https://play-backend.flowmaticai.workers.dev";
 
   // Check mobile viewport width
   useEffect(() => {
