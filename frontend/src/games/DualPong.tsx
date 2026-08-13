@@ -13,9 +13,13 @@ export default function DualPong({ onBack }: DualPongProps) {
   const [winner, setWinner] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
 
-  // Paddle widths/positions
+  // Paddle parameters
   const paddleWidth = 80;
   const paddleHeight = 12;
+
+  // Track positions at component level so touch events can update them in real time
+  const p1XRef = useRef(130); // (340 - 80) / 2 = 130
+  const p2XRef = useRef(130);
 
   // Key tracking
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -74,10 +78,6 @@ export default function DualPong({ onBack }: DualPongProps) {
     if (!ctx) return;
 
     let animationFrameId: number;
-
-    // Paddle starting positions (centered horizontally)
-    let p1X = (canvas.width - paddleWidth) / 2; // top paddle
-    let p2X = (canvas.width - paddleWidth) / 2; // bottom paddle
     const pSpeed = 6;
 
     // Ball state
@@ -97,15 +97,21 @@ export default function DualPong({ onBack }: DualPongProps) {
     const updateGame = () => {
       if (gameState !== "playing") return;
 
-      // 1. Move Top Paddle (Player 1)
-      // Controls: 'KeyA' / 'KeyD'
-      if (keysPressed.current["KeyA"]) p1X = Math.max(0, p1X - pSpeed);
-      if (keysPressed.current["KeyD"]) p1X = Math.min(canvas.width - paddleWidth, p1X + pSpeed);
+      // 1. Move Top Paddle (Player 1) via keys
+      if (keysPressed.current["KeyA"]) {
+        p1XRef.current = Math.max(0, p1XRef.current - pSpeed);
+      }
+      if (keysPressed.current["KeyD"]) {
+        p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + pSpeed);
+      }
 
-      // 2. Move Bottom Paddle (Player 2)
-      // Controls: 'ArrowLeft' / 'ArrowRight'
-      if (keysPressed.current["ArrowLeft"]) p2X = Math.max(0, p2X - pSpeed);
-      if (keysPressed.current["ArrowRight"]) p2X = Math.min(canvas.width - paddleWidth, p2X + pSpeed);
+      // 2. Move Bottom Paddle (Player 2) via keys
+      if (keysPressed.current["ArrowLeft"]) {
+        p2XRef.current = Math.max(0, p2XRef.current - pSpeed);
+      }
+      if (keysPressed.current["ArrowRight"]) {
+        p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + pSpeed);
+      }
 
       // 3. Move Ball
       ballX += ballSpeedX;
@@ -127,11 +133,10 @@ export default function DualPong({ onBack }: DualPongProps) {
       if (
         ballY - ballRadius <= 20 &&
         ballY - ballRadius >= 20 - paddleHeight &&
-        ballX >= p1X &&
-        ballX <= p1X + paddleWidth
+        ballX >= p1XRef.current &&
+        ballX <= p1XRef.current + paddleWidth
       ) {
         ballSpeedY = -ballSpeedY;
-        // Increase speed slightly
         ballSpeedX *= 1.05;
         ballSpeedY *= 1.05;
         playSound("hit");
@@ -141,8 +146,8 @@ export default function DualPong({ onBack }: DualPongProps) {
       if (
         ballY + ballRadius >= canvas.height - 20 - paddleHeight &&
         ballY + ballRadius <= canvas.height - 20 &&
-        ballX >= p2X &&
-        ballX <= p2X + paddleWidth
+        ballX >= p2XRef.current &&
+        ballX <= p2XRef.current + paddleWidth
       ) {
         ballSpeedY = -ballSpeedY;
         ballSpeedX *= 1.05;
@@ -152,7 +157,6 @@ export default function DualPong({ onBack }: DualPongProps) {
 
       // Score Check
       if (ballY - ballRadius < 0) {
-        // Player 2 Scores!
         playSound("score");
         setScore2(s => {
           const next = s + 1;
@@ -165,7 +169,6 @@ export default function DualPong({ onBack }: DualPongProps) {
           return next;
         });
       } else if (ballY + ballRadius > canvas.height) {
-        // Player 1 Scores!
         playSound("score");
         setScore1(s => {
           const next = s + 1;
@@ -198,15 +201,15 @@ export default function DualPong({ onBack }: DualPongProps) {
 
       // Top Paddle
       ctx.fillStyle = "var(--accent-color)";
-      ctx.fillRect(p1X, 20 - paddleHeight, paddleWidth, paddleHeight);
+      ctx.fillRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 3;
-      ctx.strokeRect(p1X, 20 - paddleHeight, paddleWidth, paddleHeight);
+      ctx.strokeRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
 
       // Bottom Paddle
       ctx.fillStyle = "var(--blue-accent)";
-      ctx.fillRect(p2X, canvas.height - 20, paddleWidth, paddleHeight);
-      ctx.strokeRect(p2X, canvas.height - 20, paddleWidth, paddleHeight);
+      ctx.fillRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
+      ctx.strokeRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
 
       // Ball
       ctx.beginPath();
@@ -223,18 +226,17 @@ export default function DualPong({ onBack }: DualPongProps) {
     if (gameState === "playing") {
       animationFrameId = requestAnimationFrame(updateGame);
     } else {
-      // Draw initial static board layout
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#faf6f0";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "var(--accent-color)";
-      ctx.fillRect(p1X, 20 - paddleHeight, paddleWidth, paddleHeight);
+      ctx.fillRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 3;
-      ctx.strokeRect(p1X, 20 - paddleHeight, paddleWidth, paddleHeight);
+      ctx.strokeRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
       ctx.fillStyle = "var(--blue-accent)";
-      ctx.fillRect(p2X, canvas.height - 20, paddleWidth, paddleHeight);
-      ctx.strokeRect(p2X, canvas.height - 20, paddleWidth, paddleHeight);
+      ctx.fillRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
+      ctx.strokeRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
     }
 
     return () => cancelAnimationFrame(animationFrameId);
@@ -244,11 +246,30 @@ export default function DualPong({ onBack }: DualPongProps) {
     setScore1(0);
     setScore2(0);
     setWinner(null);
+    p1XRef.current = 130;
+    p2XRef.current = 130;
     setGameState("playing");
   };
 
+  // Joystick slider helper updates
+  const handleTopSliderMove = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    if (gameState !== "playing") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const pct = (clientX - rect.left) / rect.width;
+    p1XRef.current = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+  };
+
+  const handleBottomSliderMove = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    if (gameState !== "playing") return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const pct = (clientX - rect.left) / rect.width;
+    p2XRef.current = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", userSelect: "none", WebkitUserSelect: "none" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -268,7 +289,7 @@ export default function DualPong({ onBack }: DualPongProps) {
           <div style={{ color: "var(--blue-accent)" }}>BOTTOM PLAYER: {score2}</div>
         </div>
 
-        {/* Fully Responsive aspect-ratio locked Game Container */}
+        {/* Game Container */}
         <div 
           className="neo-card" 
           style={{ 
@@ -280,69 +301,91 @@ export default function DualPong({ onBack }: DualPongProps) {
             maxWidth: "340px", 
             aspectRatio: "340 / 400", 
             border: "4px solid #121212", 
-            boxShadow: "6px 6px 0px 0px #121212" 
+            boxShadow: "6px 6px 0px 0px #121212"
           }}
         >
           <canvas
             ref={canvasRef}
             width={340}
             height={400}
-            style={{ display: "block", width: "100%", height: "100%" }}
+            style={{ display: "block", width: "100%", height: "100%", outline: "none", WebkitTapHighlightColor: "transparent" }}
           />
 
-          {/* Full Quadrant Touch/Click Zones */}
+          {/* Interactive Drag Sliders (Joysticks) on each side */}
           {gameState === "playing" && (
-            <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateRows: "1fr 1fr", pointerEvents: "none" }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none" }}>
               
-              {/* Top Player (Player 1 - Red) Touch Area */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", pointerEvents: "auto", borderBottom: "2px dashed rgba(18,18,18,0.15)" }}>
-                {/* Top Left: moves top paddle left */}
-                <div 
-                  onTouchStart={() => { keysPressed.current["KeyA"] = true; }}
-                  onTouchEnd={() => { keysPressed.current["KeyA"] = false; }}
-                  onMouseDown={() => { keysPressed.current["KeyA"] = true; }}
-                  onMouseUp={() => { keysPressed.current["KeyA"] = false; }}
-                  onMouseLeave={() => { keysPressed.current["KeyA"] = false; }}
-                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.02)", cursor: "pointer", borderRight: "1px dashed rgba(18,18,18,0.1)" }}
-                >
-                  <span style={{ transform: "rotate(180deg)", color: "rgba(255, 107, 107, 0.2)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+              {/* Top Player (Red) Drag Joystick */}
+              <div 
+                onTouchMove={handleTopSliderMove}
+                onTouchStart={handleTopSliderMove}
+                onMouseMove={(e) => e.buttons === 1 && handleTopSliderMove(e)}
+                onMouseDown={handleTopSliderMove}
+                style={{ 
+                  pointerEvents: "auto", 
+                  width: "100%", 
+                  height: "75px", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  justifyContent: "center", 
+                  alignItems: "center", 
+                  background: "rgba(255, 107, 107, 0.05)", 
+                  borderBottom: "3px dashed #121212",
+                  cursor: "ew-resize"
+                }}
+              >
+                <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
+                  <div 
+                    style={{ 
+                      position: "absolute", 
+                      left: `${(p1XRef.current / 260) * 100}%`, 
+                      top: "-12px", 
+                      width: "30px", 
+                      height: "30px", 
+                      background: "var(--accent-color)", 
+                      border: "2px solid #121212", 
+                      borderRadius: "50%",
+                      transform: "translateX(-50%)"
+                    }}
+                  />
                 </div>
-                {/* Top Right: moves top paddle right */}
-                <div 
-                  onTouchStart={() => { keysPressed.current["KeyD"] = true; }}
-                  onTouchEnd={() => { keysPressed.current["KeyD"] = false; }}
-                  onMouseDown={() => { keysPressed.current["KeyD"] = true; }}
-                  onMouseUp={() => { keysPressed.current["KeyD"] = false; }}
-                  onMouseLeave={() => { keysPressed.current["KeyD"] = false; }}
-                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.02)", cursor: "pointer" }}
-                >
-                  <span style={{ color: "rgba(255, 107, 107, 0.2)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
-                </div>
+                <span style={{ fontSize: "0.65rem", fontWeight: "800", color: "#666", marginTop: "4px", transform: "rotate(180deg)" }}>DRAG TO SLIDE</span>
               </div>
 
-              {/* Bottom Player (Player 2 - Blue) Touch Area */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", pointerEvents: "auto" }}>
-                {/* Bottom Left: moves bottom paddle left */}
-                <div 
-                  onTouchStart={() => { keysPressed.current["ArrowLeft"] = true; }}
-                  onTouchEnd={() => { keysPressed.current["ArrowLeft"] = false; }}
-                  onMouseDown={() => { keysPressed.current["ArrowLeft"] = true; }}
-                  onMouseUp={() => { keysPressed.current["ArrowLeft"] = false; }}
-                  onMouseLeave={() => { keysPressed.current["ArrowLeft"] = false; }}
-                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(76, 201, 240, 0.02)", cursor: "pointer", borderRight: "1px dashed rgba(18,18,18,0.1)" }}
-                >
-                  <span style={{ transform: "rotate(180deg)", color: "rgba(76, 201, 240, 0.3)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
-                </div>
-                {/* Bottom Right: moves bottom paddle right */}
-                <div 
-                  onTouchStart={() => { keysPressed.current["ArrowRight"] = true; }}
-                  onTouchEnd={() => { keysPressed.current["ArrowRight"] = false; }}
-                  onMouseDown={() => { keysPressed.current["ArrowRight"] = true; }}
-                  onMouseUp={() => { keysPressed.current["ArrowRight"] = false; }}
-                  onMouseLeave={() => { keysPressed.current["ArrowRight"] = false; }}
-                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(76, 201, 240, 0.02)", cursor: "pointer" }}
-                >
-                  <span style={{ color: "rgba(76, 201, 240, 0.3)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+              {/* Bottom Player (Blue) Drag Joystick */}
+              <div 
+                onTouchMove={handleBottomSliderMove}
+                onTouchStart={handleBottomSliderMove}
+                onMouseMove={(e) => e.buttons === 1 && handleBottomSliderMove(e)}
+                onMouseDown={handleBottomSliderMove}
+                style={{ 
+                  pointerEvents: "auto", 
+                  width: "100%", 
+                  height: "75px", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  justifyContent: "center", 
+                  alignItems: "center", 
+                  background: "rgba(76, 201, 240, 0.05)", 
+                  borderTop: "3px dashed #121212",
+                  cursor: "ew-resize"
+                }}
+              >
+                <span style={{ fontSize: "0.65rem", fontWeight: "800", color: "#666", marginBottom: "4px" }}>DRAG TO SLIDE</span>
+                <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
+                  <div 
+                    style={{ 
+                      position: "absolute", 
+                      left: `${(p2XRef.current / 260) * 100}%`, 
+                      top: "-12px", 
+                      width: "30px", 
+                      height: "30px", 
+                      background: "var(--blue-accent)", 
+                      border: "2px solid #121212", 
+                      borderRadius: "50%",
+                      transform: "translateX(-50%)"
+                    }}
+                  />
                 </div>
               </div>
 
@@ -353,7 +396,7 @@ export default function DualPong({ onBack }: DualPongProps) {
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1rem" }}>
               <h3 style={{ fontFamily: "var(--font-game)", fontSize: "0.85rem", textAlign: "center" }}>DUAL PONG</h3>
               <p style={{ fontWeight: "600", fontSize: "0.85rem", textAlign: "center", maxWidth: "250px" }}>
-                Top Player: A / D keys or Tap left/right half.<br />Bottom Player: Arrow keys or Tap left/right half.
+                Top & Bottom players slide their respective joysticks left and right to control paddles!
               </p>
               <button onClick={startGame} className="neo-btn accent">START DUEL</button>
             </div>

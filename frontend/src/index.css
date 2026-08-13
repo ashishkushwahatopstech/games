@@ -217,3 +217,22 @@ input:checked + .slider:before {
   }
 }
 
+/* Eliminate tap-highlight blur coloring and outlines on mobile / desktop clicks */
+canvas, button, [role="button"], div, input, svg {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+}
+
+canvas:focus, button:focus, div:focus {
+  outline: none !important;
+}
+
+/* Prevent accidental text highlight selection in games while clicking rapidly */
+body, canvas, button, .neo-card, .key-btn, .switch, .slider, h1, h2, h3, h4, span {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+
