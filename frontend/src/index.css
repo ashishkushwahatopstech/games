@@ -208,3 +208,12 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(26px);
 }
+
+/* Responsive Game Layout Grid overrides */
+@media (max-width: 800px) {
+  .game-layout-container {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+

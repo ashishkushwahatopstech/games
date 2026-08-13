@@ -268,7 +268,7 @@ export default function DualPong({ onBack }: DualPongProps) {
           <div style={{ color: "var(--blue-accent)" }}>BOTTOM PLAYER: {score2}</div>
         </div>
 
-        {/* Mobile controls layout - Top Player (A/D) and Bottom Player (ArrowLeft/ArrowRight) buttons */}
+        {/* Fully Responsive aspect-ratio locked Game Container */}
         <div 
           className="neo-card" 
           style={{ 
@@ -278,7 +278,7 @@ export default function DualPong({ onBack }: DualPongProps) {
             backgroundColor: "#faf6f0", 
             width: "100%", 
             maxWidth: "340px", 
-            height: "400px", 
+            aspectRatio: "340 / 400", 
             border: "4px solid #121212", 
             boxShadow: "6px 6px 0px 0px #121212" 
           }}
@@ -290,47 +290,70 @@ export default function DualPong({ onBack }: DualPongProps) {
             style={{ display: "block", width: "100%", height: "100%" }}
           />
 
-          {/* On-screen touch buttons for TOP player */}
-          <div style={{ position: "absolute", top: "40px", left: "10px", display: "flex", gap: "1.5rem" }}>
-            <button
-              onTouchStart={() => { keysPressed.current["KeyA"] = true; }}
-              onTouchEnd={() => { keysPressed.current["KeyA"] = false; }}
-              style={{ width: "50px", height: "40px", opacity: 0.5, border: "2px solid #000", borderRadius: "4px", backgroundColor: "#fff", fontWeight: "800" }}
-            >
-              L
-            </button>
-            <button
-              onTouchStart={() => { keysPressed.current["KeyD"] = true; }}
-              onTouchEnd={() => { keysPressed.current["KeyD"] = false; }}
-              style={{ width: "50px", height: "40px", opacity: 0.5, border: "2px solid #000", borderRadius: "4px", backgroundColor: "#fff", fontWeight: "800" }}
-            >
-              R
-            </button>
-          </div>
+          {/* Full Quadrant Touch/Click Zones */}
+          {gameState === "playing" && (
+            <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateRows: "1fr 1fr", pointerEvents: "none" }}>
+              
+              {/* Top Player (Player 1 - Red) Touch Area */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", pointerEvents: "auto", borderBottom: "2px dashed rgba(18,18,18,0.15)" }}>
+                {/* Top Left: moves top paddle left */}
+                <div 
+                  onTouchStart={() => { keysPressed.current["KeyA"] = true; }}
+                  onTouchEnd={() => { keysPressed.current["KeyA"] = false; }}
+                  onMouseDown={() => { keysPressed.current["KeyA"] = true; }}
+                  onMouseUp={() => { keysPressed.current["KeyA"] = false; }}
+                  onMouseLeave={() => { keysPressed.current["KeyA"] = false; }}
+                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.02)", cursor: "pointer", borderRight: "1px dashed rgba(18,18,18,0.1)" }}
+                >
+                  <span style={{ transform: "rotate(180deg)", color: "rgba(255, 107, 107, 0.2)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+                </div>
+                {/* Top Right: moves top paddle right */}
+                <div 
+                  onTouchStart={() => { keysPressed.current["KeyD"] = true; }}
+                  onTouchEnd={() => { keysPressed.current["KeyD"] = false; }}
+                  onMouseDown={() => { keysPressed.current["KeyD"] = true; }}
+                  onMouseUp={() => { keysPressed.current["KeyD"] = false; }}
+                  onMouseLeave={() => { keysPressed.current["KeyD"] = false; }}
+                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.02)", cursor: "pointer" }}
+                >
+                  <span style={{ color: "rgba(255, 107, 107, 0.2)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+                </div>
+              </div>
 
-          {/* On-screen touch buttons for BOTTOM player */}
-          <div style={{ position: "absolute", bottom: "40px", right: "10px", display: "flex", gap: "1.5rem" }}>
-            <button
-              onTouchStart={() => { keysPressed.current["ArrowLeft"] = true; }}
-              onTouchEnd={() => { keysPressed.current["ArrowLeft"] = false; }}
-              style={{ width: "50px", height: "40px", opacity: 0.5, border: "2px solid #000", borderRadius: "4px", backgroundColor: "#fff", fontWeight: "800" }}
-            >
-              L
-            </button>
-            <button
-              onTouchStart={() => { keysPressed.current["ArrowRight"] = true; }}
-              onTouchEnd={() => { keysPressed.current["ArrowRight"] = false; }}
-              style={{ width: "50px", height: "40px", opacity: 0.5, border: "2px solid #000", borderRadius: "4px", backgroundColor: "#fff", fontWeight: "800" }}
-            >
-              R
-            </button>
-          </div>
+              {/* Bottom Player (Player 2 - Blue) Touch Area */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", pointerEvents: "auto" }}>
+                {/* Bottom Left: moves bottom paddle left */}
+                <div 
+                  onTouchStart={() => { keysPressed.current["ArrowLeft"] = true; }}
+                  onTouchEnd={() => { keysPressed.current["ArrowLeft"] = false; }}
+                  onMouseDown={() => { keysPressed.current["ArrowLeft"] = true; }}
+                  onMouseUp={() => { keysPressed.current["ArrowLeft"] = false; }}
+                  onMouseLeave={() => { keysPressed.current["ArrowLeft"] = false; }}
+                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(76, 201, 240, 0.02)", cursor: "pointer", borderRight: "1px dashed rgba(18,18,18,0.1)" }}
+                >
+                  <span style={{ transform: "rotate(180deg)", color: "rgba(76, 201, 240, 0.3)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+                </div>
+                {/* Bottom Right: moves bottom paddle right */}
+                <div 
+                  onTouchStart={() => { keysPressed.current["ArrowRight"] = true; }}
+                  onTouchEnd={() => { keysPressed.current["ArrowRight"] = false; }}
+                  onMouseDown={() => { keysPressed.current["ArrowRight"] = true; }}
+                  onMouseUp={() => { keysPressed.current["ArrowRight"] = false; }}
+                  onMouseLeave={() => { keysPressed.current["ArrowRight"] = false; }}
+                  style={{ display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(76, 201, 240, 0.02)", cursor: "pointer" }}
+                >
+                  <span style={{ color: "rgba(76, 201, 240, 0.3)", fontWeight: "900", fontSize: "1.5rem", userSelect: "none" }}>➡️</span>
+                </div>
+              </div>
+
+            </div>
+          )}
 
           {gameState === "idle" && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1rem" }}>
               <h3 style={{ fontFamily: "var(--font-game)", fontSize: "0.85rem", textAlign: "center" }}>DUAL PONG</h3>
               <p style={{ fontWeight: "600", fontSize: "0.85rem", textAlign: "center", maxWidth: "250px" }}>
-                Top Player: A / D keys.<br />Bottom Player: Left / Right arrows.<br />Or use on-screen L/R buttons!
+                Top Player: A / D keys or Tap left/right half.<br />Bottom Player: Arrow keys or Tap left/right half.
               </p>
               <button onClick={startGame} className="neo-btn accent">START DUEL</button>
             </div>
