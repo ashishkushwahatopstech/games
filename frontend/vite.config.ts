@@ -12,7 +12,6 @@ export default defineConfig({
         admin: resolve(__dirname, 'admin.html'),
         dino: resolve(__dirname, 'dino.html'),
         stacker: resolve(__dirname, 'stacker.html'),
-        hexmerge: resolve(__dirname, 'hexmerge.html'),
         snake: resolve(__dirname, 'snake.html'),
         memory: resolve(__dirname, 'memory.html'),
         wordchase: resolve(__dirname, 'wordchase.html'),

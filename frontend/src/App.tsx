@@ -10,7 +10,6 @@ import PageLayout from "./components/PageLayout";
 const FALLBACK_GAMES = [
   { id: "dino-dash", name: "Dino Dash", is_active: 1, is_mobile_friendly: 1, url: "/dino.html" },
   { id: "stacker", name: "Stacker 3D", is_active: 1, is_mobile_friendly: 1, url: "/stacker.html" },
-  { id: "hex-merge", name: "Hex Merge (2048)", is_active: 1, is_mobile_friendly: 1, url: "/hexmerge.html" },
   { id: "retro-snake", name: "Retro Snake", is_active: 1, is_mobile_friendly: 1, url: "/snake.html" },
   { id: "memory-matrix", name: "Memory Matrix", is_active: 1, is_mobile_friendly: 1, url: "/memory.html" },
   { id: "word-chase", name: "Word Chase", is_active: 1, is_mobile_friendly: 1, url: "/wordchase.html" },

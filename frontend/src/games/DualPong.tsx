@@ -28,6 +28,10 @@ export default function DualPong({ onBack }: DualPongProps) {
   const [winner, setWinner] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
 
+  // Visual state trackers to force smooth matching of slider positions on screen
+  const [p1VisualX, setP1VisualX] = useState(130);
+  const [p2VisualX, setP2VisualX] = useState(130);
+
   const paddleWidth = 80;
   const paddleHeight = 12;
 
@@ -89,7 +93,7 @@ export default function DualPong({ onBack }: DualPongProps) {
         osc.type = "sawtooth";
         osc.frequency.setValueAtTime(150, ctx.currentTime);
         osc.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.4);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
         osc.start();
         osc.stop(ctx.currentTime + 0.4);
@@ -203,11 +207,23 @@ export default function DualPong({ onBack }: DualPongProps) {
       // Keyboard input movements
       const speed = 5;
       if (gameModeRef.current === "duel") {
-        if (keysPressed.current["KeyA"]) p1XRef.current = Math.max(0, p1XRef.current - speed);
-        if (keysPressed.current["KeyD"]) p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + speed);
+        if (keysPressed.current["KeyA"]) {
+          p1XRef.current = Math.max(0, p1XRef.current - speed);
+          setP1VisualX(p1XRef.current);
+        }
+        if (keysPressed.current["KeyD"]) {
+          p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + speed);
+          setP1VisualX(p1XRef.current);
+        }
       }
-      if (keysPressed.current["ArrowLeft"]) p2XRef.current = Math.max(0, p2XRef.current - speed);
-      if (keysPressed.current["ArrowRight"]) p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + speed);
+      if (keysPressed.current["ArrowLeft"]) {
+        p2XRef.current = Math.max(0, p2XRef.current - speed);
+        setP2VisualX(p2XRef.current);
+      }
+      if (keysPressed.current["ArrowRight"]) {
+        p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + speed);
+        setP2VisualX(p2XRef.current);
+      }
 
       // Draw paddles
       ctx.fillStyle = "#121212";
@@ -413,6 +429,8 @@ export default function DualPong({ onBack }: DualPongProps) {
     setWinner(null);
     p1XRef.current = 130;
     p2XRef.current = 130;
+    setP1VisualX(130);
+    setP2VisualX(130);
 
     if (gameMode === "bricks") {
       setScore1(1); // Level 1
@@ -433,7 +451,9 @@ export default function DualPong({ onBack }: DualPongProps) {
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const pct = (clientX - rect.left) / rect.width;
-    p1XRef.current = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+    const nextX = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+    p1XRef.current = nextX;
+    setP1VisualX(nextX);
   };
 
   const handleBottomSliderMove = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
@@ -441,11 +461,13 @@ export default function DualPong({ onBack }: DualPongProps) {
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const pct = (clientX - rect.left) / rect.width;
-    p2XRef.current = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+    const nextX = Math.max(0, Math.min(340 - paddleWidth, pct * 340 - paddleWidth / 2));
+    p2XRef.current = nextX;
+    setP2VisualX(nextX);
   };
 
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", userSelect: "none", WebkitUserSelect: "none", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", userSelect: "none", WebkitUserSelect: "none", padding: "1rem", backgroundColor: "var(--bg-color)", boxSizing: "border-box" }} className="fullscreen-compat">
       {/* Header Controls */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }} className="hide-on-fullscreen">
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -483,10 +505,10 @@ export default function DualPong({ onBack }: DualPongProps) {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", width: "100%", boxSizing: "border-box" }}>
         
         {/* Score Board HUD */}
-        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "340px", fontWeight: "800", marginBottom: "0.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: "340px", fontWeight: "800", marginBottom: "0.5rem", boxSizing: "border-box" }}>
           {gameMode === "bricks" ? (
             <>
               <div style={{ color: "var(--accent-color)" }}>LEVEL: {score1}</div>
@@ -513,7 +535,8 @@ export default function DualPong({ onBack }: DualPongProps) {
             maxWidth: "340px", 
             aspectRatio: "340 / 400", 
             border: "4px solid #121212", 
-            boxShadow: "6px 6px 0px 0px #121212"
+            boxShadow: "6px 6px 0px 0px #121212",
+            boxSizing: "border-box"
           }}
         >
           <canvas
@@ -552,11 +575,11 @@ export default function DualPong({ onBack }: DualPongProps) {
 
         {/* Joystick Controllers rendered completely below the game screen card */}
         {gameState === "playing" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", width: "100%", maxWidth: "340px", marginTop: "1.2rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", width: "100%", maxWidth: "340px", marginTop: "1.2rem", boxSizing: "border-box" }}>
             
             {/* Top Player Drag Joystick (Only in 2P Duel Mode) */}
             {gameMode === "duel" && (
-              <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff" }}>
+              <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff", boxSizing: "border-box" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "800", marginBottom: "4px" }}>
                   <span>RED PLAYER (TOP CONTROLLER)</span>
                   <span>[ A / D ]</span>
@@ -577,14 +600,15 @@ export default function DualPong({ onBack }: DualPongProps) {
                     border: "2px dashed #121212",
                     borderRadius: "6px",
                     cursor: "ew-resize",
-                    touchAction: "none"
+                    touchAction: "none",
+                    boxSizing: "border-box"
                   }}
                 >
                   <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
                     <div 
                       style={{ 
                         position: "absolute", 
-                        left: `${(p1XRef.current / 260) * 100}%`, 
+                        left: `${(p1VisualX / (340 - paddleWidth)) * 100}%`, 
                         top: "-12px", 
                         width: "30px", 
                         height: "30px", 
@@ -600,7 +624,7 @@ export default function DualPong({ onBack }: DualPongProps) {
             )}
 
             {/* Bottom Player Drag Joystick */}
-            <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff" }}>
+            <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff", boxSizing: "border-box" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "800", marginBottom: "4px" }}>
                 <span>BLUE PLAYER (BOTTOM CONTROLLER)</span>
                 <span>[ ◀ / ▶ ]</span>
@@ -621,14 +645,15 @@ export default function DualPong({ onBack }: DualPongProps) {
                   border: "2px dashed #121212",
                   borderRadius: "6px",
                   cursor: "ew-resize",
-                  touchAction: "none"
+                  touchAction: "none",
+                  boxSizing: "border-box"
                 }}
               >
                 <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
                   <div 
                     style={{ 
                       position: "absolute", 
-                      left: `${(p2XRef.current / 260) * 100}%`, 
+                      left: `${(p2VisualX / (340 - paddleWidth)) * 100}%`, 
                       top: "-12px", 
                       width: "30px", 
                       height: "30px", 

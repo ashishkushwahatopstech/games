@@ -327,7 +327,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
           <canvas
             ref={canvasRef}
             width={600}
-            height={250}
+            height={320}
             style={{ width: "100%", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer", outline: "none", WebkitTapHighlightColor: "transparent" }}
             onClick={() => {
               if (gameState === "playing" && !isPaused) {

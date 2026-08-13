@@ -311,7 +311,13 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             backgroundColor: "#faf6f0", 
             display: "flex", 
             flexDirection: "column", 
-            alignItems: "center" 
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "340px",
+            aspectRatio: "1 / 1",
+            boxSizing: "border-box",
+            border: "4px solid #121212",
+            boxShadow: "6px 6px 0px 0px #121212"
           }}
           onClick={() => {
             if (gameState === "playing" && !isPaused) {
@@ -324,7 +330,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             ref={canvasRef}
             width={400}
             height={400}
-            style={{ width: "100%", maxWidth: "400px", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer", outline: "none", WebkitTapHighlightColor: "transparent" }}
+            style={{ width: "100%", height: "100%", display: "block", background: "#faf6f0", cursor: "pointer", outline: "none", WebkitTapHighlightColor: "transparent" }}
           />
 
           {gameState === "idle" && (

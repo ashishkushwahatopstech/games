@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS active_matches (
 INSERT OR IGNORE INTO games (id, name, is_active, is_mobile_friendly) VALUES
 ('dino-dash', 'Dino Dash', 1, 1),
 ('stacker', 'Stacker 3D', 1, 1),
-('hex-merge', 'Hex Merge (2048)', 1, 1),
 ('retro-snake', 'Retro Snake', 1, 1),
 ('memory-matrix', 'Memory Matrix', 1, 1),
 ('word-chase', 'Word Chase', 1, 1),
