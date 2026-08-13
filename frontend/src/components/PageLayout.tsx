@@ -10,21 +10,49 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [guestNickname, setGuestNickname] = useState("");
   const [loginError, setLoginError] = useState("");
 
   const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://127.0.0.1:8787" 
     : "https://play-backend.flowmaticai.workers.dev";
 
-  // Sync token and profile from local storage on launch
+  // Sync token and profile from local storage on launch or initialize guest profile
   useEffect(() => {
     const savedUser = localStorage.getItem("arcade_user");
     const savedToken = localStorage.getItem("arcade_token");
     if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
+      const parsed = JSON.parse(savedUser);
+      setUser(parsed);
       setToken(savedToken);
+      if (parsed.isGuest) {
+        setGuestNickname(parsed.name);
+      }
+    } else {
+      // Auto-generate guest profile immediately
+      const randomSeed = Math.random().toString(36).substring(2, 7).toUpperCase();
+      const guestId = `guest_${randomSeed}_${Date.now().toString(36)}`;
+      const defaultName = `Guest_${randomSeed}`;
+      
+      // Post to backend to save guest in D1
+      fetch(`${backendUrl}/api/auth/guest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestId, nickname: defaultName })
+      })
+        .then(res => res.json())
+        .then((data: any) => {
+          if (!data.error) {
+            setUser(data);
+            setToken(guestId);
+            setGuestNickname(data.name);
+            localStorage.setItem("arcade_user", JSON.stringify(data));
+            localStorage.setItem("arcade_token", guestId);
+          }
+        })
+        .catch(e => console.warn("Guest generation failed", e));
     }
-  }, []);
+  }, [backendUrl]);
 
   // Google Login Initialize
   useEffect(() => {
@@ -64,9 +92,34 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
       localStorage.setItem("arcade_user", JSON.stringify(data));
       localStorage.setItem("arcade_token", response.credential);
       setShowLoginModal(false);
-      window.location.reload(); // refresh to load leaderboard sync
+      window.location.reload();
     } catch (e) {
       setLoginError("Failed to authenticate with backend server.");
+    }
+  };
+
+  const handleUpdateGuestProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestNickname.trim() || !token || !token.startsWith("guest_")) return;
+
+    try {
+      setLoginError("");
+      const res = await fetch(`${backendUrl}/api/auth/guest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestId: token, nickname: guestNickname.trim() })
+      });
+      const data = await res.json() as any;
+      if (data.error) {
+        setLoginError(data.error);
+        return;
+      }
+      setUser(data);
+      localStorage.setItem("arcade_user", JSON.stringify(data));
+      setShowLoginModal(false);
+      window.location.reload();
+    } catch (err) {
+      setLoginError("Could not update guest profile.");
     }
   };
 
@@ -141,6 +194,14 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
                     style={{ width: "32px", height: "32px", borderRadius: "50%", border: "2px solid #121212" }}
                   />
                   <span style={{ fontWeight: "800", fontSize: "0.9rem" }} className="mobile-hide">{user.name}</span>
+                  {user.isGuest && (
+                    <span 
+                      onClick={() => setShowLoginModal(true)} 
+                      style={{ fontSize: "0.75rem", background: "var(--primary-color)", padding: "0.1rem 0.4rem", border: "2px solid #121212", borderRadius: "4px", fontWeight: "800", cursor: "pointer" }}
+                    >
+                      GUEST
+                    </span>
+                  )}
                 </div>
                 {user.isAdmin && (
                   <a 
@@ -180,7 +241,7 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
       {/* Footer */}
       <footer style={{ borderTop: "3px solid #121212", backgroundColor: "#fff", padding: "1.5rem 0", marginTop: "auto" }}>
         <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem", fontWeight: "700" }}>
-          <div>© 2026 Arcade Studio - Built for play.aktechstudio.com</div>
+          <div>© 2026 Arcade Studio - play.aktechstudio.com</div>
           <div style={{ display: "flex", gap: "1rem" }}>
             <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}><Smartphone size={14} /> Mobile Compatible</span>
             <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}><Monitor size={14} /> Desktop Standard</span>
@@ -188,12 +249,39 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
         </div>
       </footer>
 
-      {/* Login modal overlay */}
+      {/* Sign In / Guest Profile Edit Modal */}
       {showLoginModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <h3 style={{ fontSize: "1.4rem", fontWeight: "800" }}>Sign In to Profile</h3>
             
+            {user?.isGuest ? (
+              <form onSubmit={handleUpdateGuestProfile} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <h3 style={{ fontSize: "1.3rem", fontWeight: "800" }}>Edit Guest Nickname</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  <label style={{ fontWeight: "700", fontSize: "0.85rem" }}>Nickname</label>
+                  <input 
+                    type="text" 
+                    value={guestNickname}
+                    onChange={(e) => setGuestNickname(e.target.value)}
+                    maxLength={14}
+                    style={{ 
+                      padding: "0.5rem 1rem", 
+                      fontSize: "1rem", 
+                      fontWeight: "700", 
+                      border: "3px solid #121212", 
+                      borderRadius: "6px",
+                      backgroundColor: "#fff"
+                    }}
+                  />
+                </div>
+                <button type="submit" className="neo-btn accent" style={{ width: "100%", justifyContent: "center" }}>
+                  SAVE NICKNAME
+                </button>
+              </form>
+            ) : (
+              <h3 style={{ fontSize: "1.4rem", fontWeight: "800" }}>Sign In to Profile</h3>
+            )}
+
             {loginError && (
               <div style={{ color: "var(--accent-color)", border: "2px solid #121212", background: "#ffeef0", padding: "0.5rem", borderRadius: "4px", fontWeight: "700", fontSize: "0.85rem" }}>
                 {loginError}

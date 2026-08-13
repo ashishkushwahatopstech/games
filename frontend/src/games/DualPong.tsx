@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
+import GameHUDControls from "../components/GameHUDControls";
 
 interface DualPongProps {
   onBack: () => void;
@@ -7,25 +8,29 @@ interface DualPongProps {
 
 export default function DualPong({ onBack }: DualPongProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
+  const [isPaused, setIsPaused] = useState(false);
   const [score1, setScore1] = useState(0); // Top Player
   const [score2, setScore2] = useState(0); // Bottom Player
   const [winner, setWinner] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
 
-  // Paddle parameters
   const paddleWidth = 80;
   const paddleHeight = 12;
 
-  // Track positions at component level so touch events can update them in real time
-  const p1XRef = useRef(130); // (340 - 80) / 2 = 130
+  const p1XRef = useRef(130);
   const p2XRef = useRef(130);
 
-  // Key tracking
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
   const playSound = (type: "hit" | "score") => {
-    if (muted) return;
+    if (muted || isPausedRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -35,15 +40,15 @@ export default function DualPong({ onBack }: DualPongProps) {
 
       if (type === "hit") {
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(330, ctx.currentTime); // E4
+        osc.frequency.setValueAtTime(330, ctx.currentTime);
         gain.gain.setValueAtTime(0.08, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
         osc.start();
         osc.stop(ctx.currentTime + 0.1);
       } else if (type === "score") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
-        osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.08); // C#5
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.08);
         gain.gain.setValueAtTime(0.08, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
         osc.start();
@@ -80,7 +85,6 @@ export default function DualPong({ onBack }: DualPongProps) {
     let animationFrameId: number;
     const pSpeed = 6;
 
-    // Ball state
     let ballX = canvas.width / 2;
     let ballY = canvas.height / 2;
     let ballRadius = 8;
@@ -97,15 +101,25 @@ export default function DualPong({ onBack }: DualPongProps) {
     const updateGame = () => {
       if (gameState !== "playing") return;
 
-      // 1. Move Top Paddle (Player 1) via keys
+      if (isPausedRef.current) {
+        ctx.fillStyle = "rgba(18, 18, 18, 0.02)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#121212";
+        ctx.font = "bold 24px var(--font-ui)";
+        ctx.textAlign = "center";
+        ctx.fillText("|| PAUSED", canvas.width / 2, canvas.height / 2);
+        animationFrameId = requestAnimationFrame(updateGame);
+        return;
+      }
+
+      // 1. Move paddles keys
       if (keysPressed.current["KeyA"]) {
         p1XRef.current = Math.max(0, p1XRef.current - pSpeed);
       }
       if (keysPressed.current["KeyD"]) {
         p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + pSpeed);
       }
-
-      // 2. Move Bottom Paddle (Player 2) via keys
       if (keysPressed.current["ArrowLeft"]) {
         p2XRef.current = Math.max(0, p2XRef.current - pSpeed);
       }
@@ -113,7 +127,7 @@ export default function DualPong({ onBack }: DualPongProps) {
         p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + pSpeed);
       }
 
-      // 3. Move Ball
+      // 2. Move Ball
       ballX += ballSpeedX;
       ballY += ballSpeedY;
 
@@ -129,7 +143,7 @@ export default function DualPong({ onBack }: DualPongProps) {
         playSound("hit");
       }
 
-      // Top Paddle Collision (Player 1)
+      // Top Paddle Collision
       if (
         ballY - ballRadius <= 20 &&
         ballY - ballRadius >= 20 - paddleHeight &&
@@ -142,7 +156,7 @@ export default function DualPong({ onBack }: DualPongProps) {
         playSound("hit");
       }
 
-      // Bottom Paddle Collision (Player 2)
+      // Bottom Paddle Collision
       if (
         ballY + ballRadius >= canvas.height - 20 - paddleHeight &&
         ballY + ballRadius <= canvas.height - 20 &&
@@ -185,11 +199,9 @@ export default function DualPong({ onBack }: DualPongProps) {
       // Render Canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Board Background
       ctx.fillStyle = "#faf6f0";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Center dash line
       ctx.strokeStyle = "rgba(18,18,18,0.2)";
       ctx.lineWidth = 3;
       ctx.setLineDash([8, 8]);
@@ -199,14 +211,13 @@ export default function DualPong({ onBack }: DualPongProps) {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Top Paddle
+      // paddles
       ctx.fillStyle = "var(--accent-color)";
       ctx.fillRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 3;
       ctx.strokeRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
 
-      // Bottom Paddle
       ctx.fillStyle = "var(--blue-accent)";
       ctx.fillRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
       ctx.strokeRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
@@ -240,7 +251,7 @@ export default function DualPong({ onBack }: DualPongProps) {
     }
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState]);
+  }, [gameState, isPaused]);
 
   const startGame = () => {
     setScore1(0);
@@ -248,12 +259,13 @@ export default function DualPong({ onBack }: DualPongProps) {
     setWinner(null);
     p1XRef.current = 130;
     p2XRef.current = 130;
+    setIsPaused(false);
+    isPausedRef.current = false;
     setGameState("playing");
   };
 
-  // Joystick slider helper updates
   const handleTopSliderMove = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
-    if (gameState !== "playing") return;
+    if (gameState !== "playing" || isPaused) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const pct = (clientX - rect.left) / rect.width;
@@ -261,7 +273,7 @@ export default function DualPong({ onBack }: DualPongProps) {
   };
 
   const handleBottomSliderMove = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
-    if (gameState !== "playing") return;
+    if (gameState !== "playing" || isPaused) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const pct = (clientX - rect.left) / rect.width;
@@ -269,16 +281,22 @@ export default function DualPong({ onBack }: DualPongProps) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", userSelect: "none", WebkitUserSelect: "none" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", userSelect: "none", WebkitUserSelect: "none", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
         <h2 className="game-title-text" style={{ fontSize: "1rem" }}>DUAL PONG (LOCAL 1v1)</h2>
-        <button onClick={() => setMuted(!muted)} className="neo-btn" style={{ padding: "0.5rem" }}>
-          {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
+        
+        <GameHUDControls 
+          isPaused={isPaused}
+          onTogglePause={gameState === "playing" ? () => setIsPaused(!isPaused) : undefined}
+          onRestart={gameState !== "idle" ? startGame : undefined}
+          muted={muted}
+          onToggleMute={() => setMuted(!muted)}
+          containerRef={containerRef}
+        />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
@@ -311,18 +329,18 @@ export default function DualPong({ onBack }: DualPongProps) {
             style={{ display: "block", width: "100%", height: "100%", outline: "none", WebkitTapHighlightColor: "transparent" }}
           />
 
-          {/* Interactive Drag Sliders (Joysticks) on each side */}
+          {/* Drag Sliders */}
           {gameState === "playing" && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none" }}>
               
-              {/* Top Player (Red) Drag Joystick */}
+              {/* Top Drag Joystick */}
               <div 
                 onTouchMove={handleTopSliderMove}
                 onTouchStart={handleTopSliderMove}
                 onMouseMove={(e) => e.buttons === 1 && handleTopSliderMove(e)}
                 onMouseDown={handleTopSliderMove}
                 style={{ 
-                  pointerEvents: "auto", 
+                  pointerEvents: isPaused ? "none" : "auto", 
                   width: "100%", 
                   height: "75px", 
                   display: "flex", 
@@ -352,14 +370,14 @@ export default function DualPong({ onBack }: DualPongProps) {
                 <span style={{ fontSize: "0.65rem", fontWeight: "800", color: "#666", marginTop: "4px", transform: "rotate(180deg)" }}>DRAG TO SLIDE</span>
               </div>
 
-              {/* Bottom Player (Blue) Drag Joystick */}
+              {/* Bottom Drag Joystick */}
               <div 
                 onTouchMove={handleBottomSliderMove}
                 onTouchStart={handleBottomSliderMove}
                 onMouseMove={(e) => e.buttons === 1 && handleBottomSliderMove(e)}
                 onMouseDown={handleBottomSliderMove}
                 style={{ 
-                  pointerEvents: "auto", 
+                  pointerEvents: isPaused ? "none" : "auto", 
                   width: "100%", 
                   height: "75px", 
                   display: "flex", 
@@ -396,7 +414,7 @@ export default function DualPong({ onBack }: DualPongProps) {
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1rem" }}>
               <h3 style={{ fontFamily: "var(--font-game)", fontSize: "0.85rem", textAlign: "center" }}>DUAL PONG</h3>
               <p style={{ fontWeight: "600", fontSize: "0.85rem", textAlign: "center", maxWidth: "250px" }}>
-                Top & Bottom players slide their respective joysticks left and right to control paddles!
+                Top & Bottom players slide their joysticks left and right to control paddles!
               </p>
               <button onClick={startGame} className="neo-btn accent">START DUEL</button>
             </div>

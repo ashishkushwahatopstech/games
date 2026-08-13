@@ -148,6 +148,29 @@ async function authenticateUser(request: Request, env: Env): Promise<any> {
     throw new Error("Unauthorized");
   }
   const token = authHeader.substring(7);
+  
+  if (token.startsWith("guest_")) {
+    const guestUser = await env.DB.prepare("SELECT * FROM users WHERE email = ?")
+      .bind(token)
+      .first<{ email: string, name: string, picture: string, is_suspended: number }>();
+      
+    if (guestUser) {
+      if (guestUser.is_suspended) {
+        throw new Error("USER_SUSPENDED");
+      }
+      return {
+        email: guestUser.email,
+        name: guestUser.name,
+        picture: guestUser.picture,
+      };
+    }
+    return {
+      email: token,
+      name: "Guest Player",
+      picture: `https://api.dicebear.com/7.x/adventurer/svg?seed=${token}`,
+    };
+  }
+  
   const payload = await verifyGoogleToken(token, env.GOOGLE_CLIENT_ID);
   
   // Check if suspended in D1 database
@@ -193,6 +216,30 @@ export default {
       // ----------------------------------------------------
       // Authentication API
       // ----------------------------------------------------
+      if (path === "/api/auth/guest" && request.method === "POST") {
+        const { guestId, nickname } = await request.json() as any;
+        if (!guestId || !nickname) {
+          return errorResponse("Missing guest details");
+        }
+
+        const picture = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(guestId)}`;
+
+        // Upsert guest user profile in D1
+        await env.DB.prepare(
+          "INSERT INTO users (email, name, picture) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET name=excluded.name, picture=excluded.picture"
+        )
+          .bind(guestId, nickname, picture)
+          .run();
+
+        return jsonResponse({
+          email: guestId,
+          name: nickname,
+          picture: picture,
+          isAdmin: false,
+          isGuest: true
+        });
+      }
+
       if (path === "/api/auth/google" && request.method === "POST") {
         const { credential } = await request.json() as any;
         if (!credential) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Trophy, RefreshCw, Volume2, VolumeX, ArrowLeft } from "lucide-react";
+import { Trophy, RefreshCw, ArrowLeft } from "lucide-react";
+import GameHUDControls from "../components/GameHUDControls";
 
 interface StackerProps {
   onBack: () => void;
@@ -11,14 +12,20 @@ interface StackerProps {
 
 export default function Stacker({ onBack, user, submitScore, leaderboard, refreshLeaderboard }: StackerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
+  const [isPaused, setIsPaused] = useState(false);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
   const [muted, setMuted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   const playSound = (type: "drop" | "slice" | "gameover" | "perfect") => {
-    if (muted) return;
+    if (muted || isPausedRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -111,7 +118,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
     }
 
     const handleAction = () => {
-      if (gameState !== "playing") return;
+      if (gameState !== "playing" || isPausedRef.current) return;
 
       const currentIdx = stack.length;
       const targetBlock = stack[currentIdx - 1]; // Previous block to stack on
@@ -121,7 +128,6 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
       const perfectThreshold = 6; // pixels for a "perfect" placement
 
       if (Math.abs(diff) <= perfectThreshold) {
-        // Perfect Alignment
         currentX = targetBlock.x;
         stack.push({
           x: currentX,
@@ -130,11 +136,9 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
         });
         playSound("perfect");
       } else {
-        // Alignment slice
         const newWidth = currentWidth - Math.abs(diff);
 
         if (newWidth <= 0) {
-          // Complete miss! Game Over
           setGameState("gameover");
           playSound("gameover");
           return;
@@ -152,16 +156,12 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
         playSound("slice");
       }
 
-      // Update score (stack size - 1)
       setScore(stack.length - 1);
       
-      // Speed up block slightly
       currentSpeed = Math.min(8, 3 + Math.floor(stack.length / 5) * 0.7);
 
-      // Start new block on top
       currentX = currentDir === 1 ? 0 : canvas.width - currentWidth;
       
-      // Adjust camera
       if (stack.length > 5) {
         cameraY = (stack.length - 5) * blockHeight;
       }
@@ -180,39 +180,45 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
     const draw = () => {
       if (!ctx || !canvas) return;
 
+      if (isPausedRef.current) {
+        // Overlay paused indicator
+        ctx.fillStyle = "rgba(18, 18, 18, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#121212";
+        ctx.font = "bold 24px var(--font-ui)";
+        ctx.textAlign = "center";
+        ctx.fillText("|| PAUSED", canvas.width / 2, canvas.height / 2);
+        animationFrameId = requestAnimationFrame(draw);
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw background gradients
       ctx.fillStyle = "#faf6f0";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
-      // Translate for camera scroll
       ctx.translate(0, cameraY);
 
       // Draw stacked blocks
       stack.forEach((block, idx) => {
         const y = canvas.height - (idx + 1) * blockHeight;
 
-        // Draw shadow (Neo-brutalist)
         ctx.fillStyle = "#121212";
         ctx.fillRect(block.x + 4, y + 4, block.width, blockHeight);
 
-        // Draw Block
         ctx.fillStyle = block.color;
         ctx.strokeStyle = "#121212";
         ctx.lineWidth = 3;
         ctx.fillRect(block.x, y, block.width, blockHeight);
         ctx.strokeRect(block.x, y, block.width, blockHeight);
 
-        // Extra details inside block for premium feel
         ctx.fillStyle = "rgba(255,255,255,0.2)";
         ctx.fillRect(block.x + 5, y + 4, block.width - 10, 4);
       });
 
-      // Update and draw current moving block on top
       if (gameState === "playing") {
-        // Move current block
         currentX += currentSpeed * currentDir;
         if (currentX + currentWidth > canvas.width) {
           currentX = canvas.width - currentWidth;
@@ -224,11 +230,9 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
 
         const y = canvas.height - (stack.length + 1) * blockHeight;
 
-        // Draw moving shadow
         ctx.fillStyle = "#121212";
         ctx.fillRect(currentX + 4, y + 4, currentWidth, blockHeight);
 
-        // Draw moving block
         ctx.fillStyle = colors[stack.length % colors.length];
         ctx.strokeStyle = "#121212";
         ctx.lineWidth = 3;
@@ -249,7 +253,6 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
     if (gameState === "playing") {
       animationFrameId = requestAnimationFrame(draw);
     } else {
-      // Draw static board
       draw();
     }
 
@@ -257,10 +260,12 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
       window.removeEventListener("keydown", handleKeydown);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gameState]);
+  }, [gameState, isPaused]);
 
   const startGame = () => {
     setScore(0);
+    setIsPaused(false);
+    isPausedRef.current = false;
     setGameState("playing");
   };
 
@@ -278,16 +283,22 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
         <h2 className="game-title-text" style={{ fontSize: "1rem" }}>STACKER 3D</h2>
-        <button onClick={() => setMuted(!muted)} className="neo-btn" style={{ padding: "0.5rem" }}>
-          {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
+        
+        <GameHUDControls 
+          isPaused={isPaused}
+          onTogglePause={gameState === "playing" ? () => setIsPaused(!isPaused) : undefined}
+          onRestart={gameState !== "idle" ? startGame : undefined}
+          muted={muted}
+          onToggleMute={() => setMuted(!muted)}
+          containerRef={containerRef}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
@@ -304,7 +315,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             alignItems: "center" 
           }}
           onClick={() => {
-            if (gameState === "playing") {
+            if (gameState === "playing" && !isPaused) {
               const pressSpace = new KeyboardEvent("keydown", { code: "Space" });
               window.dispatchEvent(pressSpace);
             }
@@ -314,7 +325,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             ref={canvasRef}
             width={400}
             height={400}
-            style={{ width: "100%", maxWidth: "400px", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer" }}
+            style={{ width: "100%", maxWidth: "400px", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer", outline: "none", WebkitTapHighlightColor: "transparent" }}
           />
 
           {gameState === "idle" && (
@@ -357,29 +368,32 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             {leaderboard.length === 0 ? (
               <p style={{ color: "#666", fontSize: "0.9rem" }}>No highscores yet. Play to set one!</p>
             ) : (
-              leaderboard.map((entry, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.5rem",
-                    border: "2px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: idx === 0 ? "var(--primary-color)" : "#fff",
-                    fontWeight: "700",
-                    fontSize: "0.9rem"
-                  }}
-                >
-                  <span style={{ display: "flex", gap: "0.4rem" }}>
-                    <span>#{idx + 1}</span>
-                    <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.user_name}
+              leaderboard.map((entry, idx) => {
+                const isCurrentUser = user && entry.user_name === user.name;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "0.5rem",
+                      border: "2px solid var(--border-color)",
+                      borderRadius: "4px",
+                      backgroundColor: idx === 0 ? "var(--primary-color)" : isCurrentUser ? "var(--secondary-color)" : "#fff",
+                      fontWeight: "700",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    <span style={{ display: "flex", gap: "0.4rem" }}>
+                      <span>#{idx + 1}</span>
+                      <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.user_name}
+                      </span>
                     </span>
-                  </span>
-                  <span>{entry.score}</span>
-                </div>
-              ))
+                    <span>{entry.score}</span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

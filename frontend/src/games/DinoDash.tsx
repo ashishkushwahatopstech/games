@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Trophy, RefreshCw, Volume2, VolumeX, ArrowLeft } from "lucide-react";
+import { Trophy, RefreshCw, ArrowLeft } from "lucide-react";
+import GameHUDControls from "../components/GameHUDControls";
 
 interface DinoDashProps {
   onBack: () => void;
@@ -11,15 +12,23 @@ interface DinoDashProps {
 
 export default function DinoDash({ onBack, user, submitScore, leaderboard, refreshLeaderboard }: DinoDashProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
+  const [isPaused, setIsPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [muted, setMuted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Audio synthesize helpers (using Web Audio API, no files needed!)
+  // Keep a ref of isPaused so the loop callback can read it instantly
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Audio synthesize helpers
   const playSound = (type: "jump" | "crash" | "point") => {
-    if (muted) return;
+    if (muted || isPausedRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -89,7 +98,6 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     let localScore = 0;
     let lastPointScore = 0;
 
-    // Background stars/clouds for visual flair
     const decor: {x: number, y: number, size: number, speed: number}[] = Array.from({length: 8}, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * 80 + 20,
@@ -98,7 +106,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     }));
 
     const handleJump = () => {
-      if (gameState !== "playing") return;
+      if (gameState !== "playing" || isPausedRef.current) return;
       if (!isJumping) {
         dinoVelocityY = jumpStrength;
         isJumping = true;
@@ -119,6 +127,19 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     const update = () => {
       if (gameState !== "playing") return;
 
+      if (isPausedRef.current) {
+        // Just draw a paused text overlay on the canvas and keep requestAnimationFrame active
+        ctx.fillStyle = "rgba(18, 18, 18, 0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#121212";
+        ctx.font = "bold 24px var(--font-ui)";
+        ctx.textAlign = "center";
+        ctx.fillText("|| PAUSED", canvas.width / 2, canvas.height / 2);
+        animationFrameId = requestAnimationFrame(update);
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Draw background sky
@@ -137,7 +158,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
         ctx.fill();
       });
 
-      // Draw ground line (Neo-brutalist style: bold line)
+      // Draw ground line
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -156,7 +177,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
         isJumping = false;
       }
 
-      // Draw Dino (Neo-brutalist green box with eyes and teeth)
+      // Draw Dino
       ctx.fillStyle = "#06d6a0";
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 3;
@@ -167,7 +188,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       ctx.fillStyle = "#121212";
       ctx.fillRect(68, dinoY + 6, 4, 4);
 
-      // Spikes on back
+      // Spikes
       ctx.fillStyle = "#ff6b6b";
       ctx.beginPath();
       ctx.moveTo(48, dinoY + 10);
@@ -192,7 +213,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
         obstacleTimer = 0;
       }
 
-      // Draw and update obstacles
+      // Draw obstacles
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.x -= obs.speed;
@@ -201,12 +222,10 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
           ? canvas.height - 10 - obs.height - obs.yOffset! 
           : canvas.height - 10 - obs.height;
 
-        // Draw obstacles (red with black borders)
         ctx.fillStyle = obs.type === "bird" ? "#4cc9f0" : "#ff6b6b";
         ctx.fillRect(obs.x, obsY, obs.width, obs.height);
         ctx.strokeRect(obs.x, obsY, obs.width, obs.height);
 
-        // Bird wings animation placeholder
         if (obs.type === "bird") {
           ctx.fillStyle = "#121212";
           ctx.fillRect(obs.x + 4, obsY + 4, 6, 2);
@@ -224,7 +243,6 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
           obsY < dinoBottom &&
           obsY + obs.height > dinoTop
         ) {
-          // Crash!
           setGameState("gameover");
           playSound("crash");
           if (localScore > highScore) {
@@ -233,7 +251,6 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
           break;
         }
 
-        // Remove offscreen
         if (obs.x + obs.width < 0) {
           obstacles.splice(i, 1);
         }
@@ -244,11 +261,10 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       const roundedScore = Math.floor(localScore);
       setScore(roundedScore);
 
-      // Point ding every 100 points
       if (roundedScore > 0 && roundedScore % 100 === 0 && roundedScore > lastPointScore) {
         lastPointScore = roundedScore;
         playSound("point");
-        currentSpeed += 0.4; // Speed up
+        currentSpeed += 0.4;
       }
 
       animationFrameId = requestAnimationFrame(update);
@@ -262,10 +278,12 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       window.removeEventListener("keydown", handleKeydown);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gameState]);
+  }, [gameState, isPaused]);
 
   const startGame = () => {
     setScore(0);
+    setIsPaused(false);
+    isPausedRef.current = false;
     setGameState("playing");
   };
 
@@ -283,16 +301,22 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
       {/* Header Panel */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
         <h2 className="game-title-text" style={{ fontSize: "1rem" }}>DINO DASH</h2>
-        <button onClick={() => setMuted(!muted)} className="neo-btn" style={{ padding: "0.5rem" }}>
-          {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
+        
+        <GameHUDControls 
+          isPaused={isPaused}
+          onTogglePause={gameState === "playing" ? () => setIsPaused(!isPaused) : undefined}
+          onRestart={gameState !== "idle" ? startGame : undefined}
+          muted={muted}
+          onToggleMute={() => setMuted(!muted)}
+          containerRef={containerRef}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
@@ -302,9 +326,9 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
             ref={canvasRef}
             width={600}
             height={250}
-            style={{ width: "100%", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer" }}
+            style={{ width: "100%", height: "auto", display: "block", background: "#faf6f0", cursor: "pointer", outline: "none", WebkitTapHighlightColor: "transparent" }}
             onClick={() => {
-              if (gameState === "playing") {
+              if (gameState === "playing" && !isPaused) {
                 const jumpEvent = new KeyboardEvent("keydown", { code: "Space" });
                 window.dispatchEvent(jumpEvent);
               }
@@ -352,29 +376,32 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
             {leaderboard.length === 0 ? (
               <p style={{ color: "#666", fontSize: "0.9rem" }}>No highscores yet. Be the first!</p>
             ) : (
-              leaderboard.map((entry, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.5rem",
-                    border: "2px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: idx === 0 ? "var(--primary-color)" : "#fff",
-                    fontWeight: "700",
-                    fontSize: "0.9rem"
-                  }}
-                >
-                  <span style={{ display: "flex", gap: "0.4rem" }}>
-                    <span>#{idx + 1}</span>
-                    <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.user_name}
+              leaderboard.map((entry, idx) => {
+                const isCurrentUser = user && entry.user_name === user.name;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "0.5rem",
+                      border: "2px solid var(--border-color)",
+                      borderRadius: "4px",
+                      backgroundColor: idx === 0 ? "var(--primary-color)" : isCurrentUser ? "var(--secondary-color)" : "#fff",
+                      fontWeight: "700",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    <span style={{ display: "flex", gap: "0.4rem" }}>
+                      <span>#{idx + 1}</span>
+                      <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.user_name}
+                      </span>
                     </span>
-                  </span>
-                  <span>{entry.score}</span>
-                </div>
-              ))
+                    <span>{entry.score}</span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

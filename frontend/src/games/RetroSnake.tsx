@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Trophy, RefreshCw, Volume2, VolumeX, ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight } from "lucide-react";
+import { Trophy, RefreshCw, ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight } from "lucide-react";
+import GameHUDControls from "../components/GameHUDControls";
 
 interface RetroSnakeProps {
   onBack: () => void;
@@ -13,7 +14,9 @@ type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 type Position = { x: number; y: number };
 
 export default function RetroSnake({ onBack, user, submitScore, leaderboard, refreshLeaderboard }: RetroSnakeProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
+  const [isPaused, setIsPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [muted, setMuted] = useState(false);
@@ -29,8 +32,13 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
   const [direction, setDirection] = useState<Direction>("UP");
   const directionRef = useRef<Direction>("UP");
 
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   const playSound = (type: "eat" | "crash") => {
-    if (muted) return;
+    if (muted || isPausedRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -72,6 +80,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
   };
 
   const handleDirectionChange = (newDir: Direction) => {
+    if (isPausedRef.current) return;
     const current = directionRef.current;
     if (newDir === "UP" && current !== "DOWN") directionRef.current = "UP";
     if (newDir === "DOWN" && current !== "UP") directionRef.current = "DOWN";
@@ -82,7 +91,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState !== "playing") return;
+      if (gameState !== "playing" || isPaused) return;
       if (e.key === "ArrowUp") { e.preventDefault(); handleDirectionChange("UP"); }
       if (e.key === "ArrowDown") { e.preventDefault(); handleDirectionChange("DOWN"); }
       if (e.key === "ArrowLeft") { e.preventDefault(); handleDirectionChange("LEFT"); }
@@ -90,13 +99,15 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [gameState]);
+  }, [gameState, isPaused]);
 
   // Main Loop
   useEffect(() => {
     if (gameState !== "playing") return;
 
     const gameInterval = setInterval(() => {
+      if (isPausedRef.current) return;
+
       setSnake(prevSnake => {
         const head = { ...prevSnake[0] };
         const currentDir = directionRef.current;
@@ -106,7 +117,6 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
         if (currentDir === "LEFT") head.x -= 1;
         if (currentDir === "RIGHT") head.x += 1;
 
-        // Collision with walls
         if (head.x < 0 || head.x >= gridCount || head.y < 0 || head.y >= gridCount) {
           setGameState("gameover");
           playSound("crash");
@@ -114,7 +124,6 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
           return prevSnake;
         }
 
-        // Collision with self
         const crashSelf = prevSnake.some(segment => segment.x === head.x && segment.y === head.y);
         if (crashSelf) {
           setGameState("gameover");
@@ -125,7 +134,6 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
 
         const newSnake = [head, ...prevSnake];
 
-        // Eat Food
         if (head.x === food.x && head.y === food.y) {
           setScore(s => {
             const nextScore = s + 10;
@@ -140,13 +148,15 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
 
         return newSnake;
       });
-    }, Math.max(80, 160 - Math.floor(score / 50) * 10)); // Speed increase
+    }, Math.max(80, 160 - Math.floor(score / 50) * 10));
 
     return () => clearInterval(gameInterval);
   }, [gameState, food, score]);
 
   const startGame = () => {
     setScore(0);
+    setIsPaused(false);
+    isPausedRef.current = false;
     setDirection("UP");
     directionRef.current = "UP";
     const initialSnake = [
@@ -173,20 +183,25 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
         <h2 className="game-title-text" style={{ fontSize: "1rem" }}>RETRO SNAKE</h2>
-        <button onClick={() => setMuted(!muted)} className="neo-btn" style={{ padding: "0.5rem" }}>
-          {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        </button>
+        
+        <GameHUDControls 
+          isPaused={isPaused}
+          onTogglePause={gameState === "playing" ? () => setIsPaused(!isPaused) : undefined}
+          onRestart={gameState !== "idle" ? startGame : undefined}
+          muted={muted}
+          onToggleMute={() => setMuted(!muted)}
+          containerRef={containerRef}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
-        {/* Play board */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
           <div className="neo-card" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#e2dcd0", width: "100%", maxWidth: "340px", height: "340px", border: "4px solid #121212" }}>
             
@@ -219,6 +234,13 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
               })}
             </div>
 
+            {isPaused && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem", zIndex: 10 }}>
+                <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", fontWeight: "bold" }}>PAUSED</div>
+                <button onClick={() => setIsPaused(false)} className="neo-btn accent">RESUME</button>
+              </div>
+            )}
+
             {gameState === "idle" && (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem" }}>
                 <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", fontWeight: "bold" }}>SNAKE RETRO</div>
@@ -243,7 +265,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
             )}
           </div>
 
-          {/* D-Pad controls for Mobile compatibility */}
+          {/* D-Pad controls for Mobile */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "center", width: "160px" }}>
             <button onClick={() => handleDirectionChange("UP")} className="neo-btn" style={{ padding: "0.8rem" }}><ArrowUp size={20} /></button>
             <div style={{ display: "flex", gap: "1.5rem" }}>
@@ -263,29 +285,32 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
             {leaderboard.length === 0 ? (
               <p style={{ color: "#666", fontSize: "0.9rem" }}>No scores submitted yet.</p>
             ) : (
-              leaderboard.map((entry, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.5rem",
-                    border: "2px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: idx === 0 ? "var(--primary-color)" : "#fff",
-                    fontWeight: "700",
-                    fontSize: "0.9rem"
-                  }}
-                >
-                  <span style={{ display: "flex", gap: "0.4rem" }}>
-                    <span>#{idx + 1}</span>
-                    <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.user_name}
+              leaderboard.map((entry, idx) => {
+                const isCurrentUser = user && entry.user_name === user.name;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "0.5rem",
+                      border: "2px solid var(--border-color)",
+                      borderRadius: "4px",
+                      backgroundColor: idx === 0 ? "var(--primary-color)" : isCurrentUser ? "var(--secondary-color)" : "#fff",
+                      fontWeight: "700",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    <span style={{ display: "flex", gap: "0.4rem" }}>
+                      <span>#{idx + 1}</span>
+                      <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.user_name}
+                      </span>
                     </span>
-                  </span>
-                  <span>{entry.score}</span>
-                </div>
-              ))
+                    <span>{entry.score}</span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

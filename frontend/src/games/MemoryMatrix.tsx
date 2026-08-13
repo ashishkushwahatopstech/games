@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Trophy, RefreshCw, ArrowLeft } from "lucide-react";
+import GameHUDControls from "../components/GameHUDControls";
 
 interface MemoryMatrixProps {
   onBack: () => void;
@@ -10,21 +11,71 @@ interface MemoryMatrixProps {
 }
 
 export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, refreshLeaderboard }: MemoryMatrixProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [gameState, setGameState] = useState<"idle" | "memorize" | "player" | "gameover">("idle");
+  const [isPaused, setIsPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [muted, setMuted] = useState(false);
 
-  const [gridSize, setGridSize] = useState(3); // start with 3x3
+  const [gridSize, setGridSize] = useState(3);
   const [activeTiles, setActiveTiles] = useState<number[]>([]);
   const [selectedTiles, setSelectedTiles] = useState<number[]>([]);
   const [strikes, setStrikes] = useState(0);
   const maxStrikes = 3;
 
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Audio synthesize helpers
+  const playSound = (type: "correct" | "fail" | "gameover" | "reveal") => {
+    if (muted || isPausedRef.current) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === "correct") {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } else if (type === "reveal") {
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } else if (type === "fail") {
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(220, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } else if (type === "gameover") {
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(180, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(60, ctx.currentTime + 0.45);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.45);
+      }
+    } catch (e) {
+      console.warn("Audio Context failed", e);
+    }
+  };
+
   const startLevel = (nextScore: number) => {
-    // Determine grid size based on score
-    // 0-3: 3x3 grid, 3 tiles
-    // 4-8: 4x4 grid, 4-5 tiles
-    // 9+: 5x5 grid, 6-7 tiles
+    if (isPausedRef.current) return;
     let size = 3;
     let tileCount = 3;
 
@@ -39,8 +90,8 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
     setGridSize(size);
     setSelectedTiles([]);
     setGameState("memorize");
+    playSound("reveal");
 
-    // Generate random distinct tiles
     const totalCells = size * size;
     const tiles: number[] = [];
     while (tiles.length < tileCount) {
@@ -58,42 +109,42 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
   };
 
   const handleTileClick = (idx: number) => {
-    if (gameState !== "player") return;
+    if (gameState !== "player" || isPaused) return;
 
-    // Already selected
     if (selectedTiles.includes(idx)) return;
 
     if (activeTiles.includes(idx)) {
-      // Correct tile!
       const newSelected = [...selectedTiles, idx];
       setSelectedTiles(newSelected);
+      playSound("correct");
 
-      // Check if level completed
       if (newSelected.length === activeTiles.length) {
         setScore(s => {
           const nextScore = s + 1;
-          // Go to next level
           setTimeout(() => startLevel(nextScore), 800);
           return nextScore;
         });
       }
     } else {
-      // Wrong tile! Strike
-      setStrikes(s => {
-        const nextStrikes = s + 1;
+      playSound("fail");
+      setStrikes(prev => {
+        const nextStrikes = prev + 1;
         if (nextStrikes >= maxStrikes) {
           setGameState("gameover");
+          playSound("gameover");
+        } else {
+          setTimeout(() => startLevel(score), 1000);
         }
         return nextStrikes;
       });
-      // Flash the wrong tile or show user they made a mistake
-      setSelectedTiles([...selectedTiles, idx]);
     }
   };
 
   const startGame = () => {
     setScore(0);
     setStrikes(0);
+    setIsPaused(false);
+    isPausedRef.current = false;
     startLevel(0);
   };
 
@@ -111,95 +162,121 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
         <h2 className="game-title-text" style={{ fontSize: "1rem" }}>MEMORY MATRIX</h2>
-        <div style={{ display: "flex", gap: "1rem", fontWeight: "800" }}>
-          <div>STRIKES: {strikes}/{maxStrikes}</div>
-          <div>LEVEL: {score}</div>
-        </div>
+        
+        <GameHUDControls 
+          isPaused={isPaused}
+          onTogglePause={(gameState === "player" || gameState === "memorize") ? () => setIsPaused(!isPaused) : undefined}
+          onRestart={gameState !== "idle" ? startGame : undefined}
+          muted={muted}
+          onToggleMute={() => setMuted(!muted)}
+          containerRef={containerRef}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         {/* Play Area */}
-        <div className="neo-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", backgroundColor: "#faf6f0", minHeight: "340px", justifyContent: "center" }}>
-          
-          {gameState === "idle" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
-              <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", fontWeight: "bold" }}>MEMORY MATRIX</div>
-              <p style={{ fontWeight: "600", textAlign: "center", maxWidth: "250px", fontSize: "0.85rem" }}>
-                Memorize the active tiles and click them when the grid hides them!
-              </p>
-              <button onClick={startGame} className="neo-btn accent">START CHALLENGE</button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+          <div style={{ display: "flex", gap: "2rem", fontWeight: "800", fontSize: "1.1rem" }}>
+            <div>SCORE: {score}</div>
+            <div style={{ color: strikes > 0 ? "var(--accent-color)" : "inherit" }}>
+              STRIKES: {strikes} / {maxStrikes}
             </div>
-          )}
+          </div>
 
-          {gameState === "gameover" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
-              <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", color: "var(--accent-color)" }}>OUT OF TRIES!</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>LEVEL REACHED: {score}</div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                {user && score > 0 && (
-                  <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                    {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                  </button>
-                )}
+          <div 
+            className="neo-card" 
+            style={{ 
+              padding: "1rem", 
+              position: "relative", 
+              backgroundColor: "#faf6f0", 
+              width: "100%", 
+              maxWidth: "340px", 
+              height: "340px", 
+              boxSizing: "border-box",
+              border: "4px solid #121212"
+            }}
+          >
+            {isPaused && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1rem", zIndex: 10 }}>
+                <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", fontWeight: "bold" }}>PAUSED</div>
+                <button onClick={() => setIsPaused(false)} className="neo-btn accent">RESUME</button>
               </div>
-            </div>
-          )}
+            )}
 
-          {(gameState === "memorize" || gameState === "player") && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-              <div style={{ fontSize: "1rem", fontWeight: "800" }}>
-                {gameState === "memorize" ? "👀 MEMORIZE THE BLUE CELLS..." : "👉 CLICK THE TILES!"}
+            {gameState === "idle" && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1.2rem", zIndex: 5 }}>
+                <div style={{ fontFamily: "var(--font-game)", fontSize: "1.1rem", fontWeight: "bold" }}>MEMORY MATRIX</div>
+                <p style={{ fontWeight: "600", fontSize: "0.85rem", textAlign: "center", padding: "0 1rem" }}>
+                  Memorize the highlighted tile pattern and click them after they hide!
+                </p>
+                <button onClick={startGame} className="neo-btn accent">START PLAYING</button>
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-                  gridTemplateRows: `repeat(${gridSize}, 1fr)`,
-                  gap: "6px",
-                  width: "280px",
-                  height: "280px",
-                  border: "4px solid var(--border-color)",
-                  padding: "6px",
-                  backgroundColor: "var(--border-color)",
-                  borderRadius: "8px"
-                }}
-              >
-                {Array.from({ length: gridSize * gridSize }).map((_, idx) => {
-                  const isActive = activeTiles.includes(idx);
-                  const isSelected = selectedTiles.includes(idx);
-                  
-                  let cellBg = "#fff";
-                  if (gameState === "memorize" && isActive) {
-                    cellBg = "var(--blue-accent)";
-                  } else if (gameState === "player" && isSelected) {
-                    cellBg = isActive ? "var(--secondary-color)" : "var(--accent-color)";
+            )}
+
+            {gameState === "gameover" && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1.2rem", zIndex: 5 }}>
+                <div style={{ fontFamily: "var(--font-game)", fontSize: "1.1rem", color: "var(--accent-color)" }}>GAME OVER</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: "800" }}>SCORE: {score}</div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
+                  {user && score > 0 && (
+                    <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
+                      {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Matrix Board */}
+            <div 
+              style={{ 
+                display: "grid", 
+                gridTemplateColumns: `repeat(${gridSize}, 1fr)`, 
+                gridTemplateRows: `repeat(${gridSize}, 1fr)`, 
+                gap: "8px", 
+                width: "100%", 
+                height: "100%" 
+              }}
+            >
+              {Array.from({ length: gridSize * gridSize }).map((_, idx) => {
+                const isActivated = activeTiles.includes(idx);
+                const isSelected = selectedTiles.includes(idx);
+                
+                let tileColor = "#e5ded4";
+                if (gameState === "memorize" && isActivated) {
+                  tileColor = "var(--primary-color)";
+                } else if (gameState === "player") {
+                  if (isSelected) {
+                    tileColor = "var(--secondary-color)";
                   }
+                }
 
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => handleTileClick(idx)}
-                      style={{
-                        backgroundColor: cellBg,
-                        borderRadius: "4px",
-                        cursor: gameState === "player" ? "pointer" : "default",
-                        transition: "background-color 0.15s ease",
-                        border: isSelected && !isActive ? "3px solid #121212" : "none"
-                      }}
-                    />
-                  );
-                })}
-              </div>
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleTileClick(idx)}
+                    className="neo-btn"
+                    style={{
+                      padding: 0,
+                      backgroundColor: tileColor,
+                      border: "3px solid #121212",
+                      borderRadius: "6px",
+                      boxShadow: "none",
+                      transition: "background-color 0.15s ease"
+                    }}
+                  />
+                );
+              })}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Highscores */}
@@ -209,31 +286,34 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {leaderboard.length === 0 ? (
-              <p style={{ color: "#666", fontSize: "0.9rem" }}>No highscores yet. Play to set one!</p>
+              <p style={{ color: "#666", fontSize: "0.9rem" }}>No scores submitted yet.</p>
             ) : (
-              leaderboard.map((entry, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.5rem",
-                    border: "2px solid var(--border-color)",
-                    borderRadius: "4px",
-                    backgroundColor: idx === 0 ? "var(--primary-color)" : "#fff",
-                    fontWeight: "700",
-                    fontSize: "0.9rem"
-                  }}
-                >
-                  <span style={{ display: "flex", gap: "0.4rem" }}>
-                    <span>#{idx + 1}</span>
-                    <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.user_name}
+              leaderboard.map((entry, idx) => {
+                const isCurrentUser = user && entry.user_name === user.name;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "0.5rem",
+                      border: "2px solid var(--border-color)",
+                      borderRadius: "4px",
+                      backgroundColor: idx === 0 ? "var(--primary-color)" : isCurrentUser ? "var(--secondary-color)" : "#fff",
+                      fontWeight: "700",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    <span style={{ display: "flex", gap: "0.4rem" }}>
+                      <span>#{idx + 1}</span>
+                      <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.user_name}
+                      </span>
                     </span>
-                  </span>
-                  <span>{entry.score}</span>
-                </div>
-              ))
+                    <span>{entry.score}</span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
