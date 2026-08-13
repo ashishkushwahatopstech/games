@@ -24,6 +24,18 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // Auto-submit score on game over and set has_played lock
+  useEffect(() => {
+    if (gameState === "gameover" && score > 0) {
+      localStorage.setItem("arcade_has_played", "true");
+      setSubmitting(true);
+      submitScore(score)
+        .then(() => refreshLeaderboard())
+        .catch(e => console.warn("Score auto submit failed", e))
+        .finally(() => setSubmitting(false));
+    }
+  }, [gameState]);
+
   const playSound = (type: "drop" | "slice" | "gameover" | "perfect") => {
     if (muted || isPausedRef.current) return;
     try {
@@ -181,7 +193,6 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
       if (!ctx || !canvas) return;
 
       if (isPausedRef.current) {
-        // Overlay paused indicator
         ctx.fillStyle = "rgba(18, 18, 18, 0.05)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -263,27 +274,15 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
   }, [gameState, isPaused]);
 
   const startGame = () => {
+    localStorage.setItem("arcade_has_played", "true");
     setScore(0);
     setIsPaused(false);
     isPausedRef.current = false;
     setGameState("playing");
   };
 
-  const handleScoreSubmit = async () => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      await submitScore(score);
-      refreshLeaderboard();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -340,12 +339,14 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem" }}>
               <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", color: "var(--accent-color)" }}>GAME OVER</div>
               <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>HEIGHT STACKED: {score}</div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem" }}>
                 <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                {user && score > 0 && (
-                  <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                    {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                  </button>
+                {user && (
+                  submitting ? (
+                    <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#666" }}>SAVING SCORE...</span>
+                  ) : (
+                    <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "var(--secondary-color)" }}>SCORE SAVED!</span>
+                  )
                 )}
               </div>
             </div>

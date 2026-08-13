@@ -37,6 +37,18 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // Auto-submit score on game over and set has_played lock
+  useEffect(() => {
+    if (gameState === "gameover" && score > 0) {
+      localStorage.setItem("arcade_has_played", "true");
+      setSubmitting(true);
+      submitScore(score)
+        .then(() => refreshLeaderboard())
+        .catch(e => console.warn("Score auto submit failed", e))
+        .finally(() => setSubmitting(false));
+    }
+  }, [gameState]);
+
   const playSound = (type: "eat" | "crash") => {
     if (muted || isPausedRef.current) return;
     try {
@@ -48,8 +60,8 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
 
       if (type === "eat") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
         gain.gain.setValueAtTime(0.08, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
         osc.start();
@@ -101,7 +113,6 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameState, isPaused]);
 
-  // Main Loop
   useEffect(() => {
     if (gameState !== "playing") return;
 
@@ -154,6 +165,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
   }, [gameState, food, score]);
 
   const startGame = () => {
+    localStorage.setItem("arcade_has_played", "true");
     setScore(0);
     setIsPaused(false);
     isPausedRef.current = false;
@@ -169,21 +181,8 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
     setGameState("playing");
   };
 
-  const handleScoreSubmit = async () => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      await submitScore(score);
-      refreshLeaderboard();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -253,19 +252,21 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem" }}>
                 <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", color: "var(--accent-color)" }}>CRASHED!</div>
                 <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>SCORE: {score}</div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem" }}>
                   <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                  {user && score > 0 && (
-                    <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                      {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                    </button>
+                  {user && (
+                    submitting ? (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#666" }}>SAVING SCORE...</span>
+                    ) : (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "var(--secondary-color)" }}>SCORE SAVED!</span>
+                    )
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* D-Pad controls for Mobile */}
+          {/* D-Pad */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "center", width: "160px" }}>
             <button onClick={() => handleDirectionChange("UP")} className="neo-btn" style={{ padding: "0.8rem" }}><ArrowUp size={20} /></button>
             <div style={{ display: "flex", gap: "1.5rem" }}>

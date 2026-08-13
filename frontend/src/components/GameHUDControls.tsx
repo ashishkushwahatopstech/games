@@ -41,10 +41,8 @@ export default function GameHUDControls({
     }
   };
 
-  // Global keyboard shortcuts: Esc/P (pause), M (mute), F (fullscreen)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      // Ignore shortcut key triggers if user is typing in a form input or text area
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
         return;
@@ -69,16 +67,31 @@ export default function GameHUDControls({
     return () => window.removeEventListener("keydown", handleGlobalShortcuts);
   }, [isPaused, onTogglePause, muted, onToggleMute]);
 
+  const kbdStyle: React.CSSProperties = {
+    fontSize: "0.55rem",
+    background: "#fff",
+    border: "1.5px solid #121212",
+    borderRadius: "3px",
+    padding: "0.05rem 0.2rem",
+    fontWeight: "900",
+    color: "#121212",
+    fontFamily: "monospace",
+    marginLeft: "0.15rem",
+    display: "inline-block",
+    boxShadow: "1px 1px 0px #121212"
+  };
+
   return (
     <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
       {onTogglePause && isPaused !== undefined && (
         <button 
           onClick={onTogglePause} 
           className="neo-btn" 
-          style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
+          style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.2rem" }}
           title={isPaused ? "Play [P]" : "Pause [P]"}
         >
-          {isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+          {isPaused ? <Play size={13} fill="currentColor" /> : <Pause size={13} fill="currentColor" />}
+          <kbd style={kbdStyle}>P</kbd>
         </button>
       )}
 
@@ -89,26 +102,28 @@ export default function GameHUDControls({
           style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
           title="Restart"
         >
-          <RotateCcw size={14} />
+          <RotateCcw size={13} />
         </button>
       )}
 
       <button 
         onClick={toggleFullscreen} 
         className="neo-btn blue" 
-        style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
+        style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.2rem" }}
         title="Toggle Fullscreen [F]"
       >
-        {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        <kbd style={kbdStyle}>F</kbd>
       </button>
 
       <button 
         onClick={onToggleMute} 
         className="neo-btn" 
-        style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
+        style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.2rem" }}
         title={muted ? "Unmute [M]" : "Mute [M]"}
       >
-        {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+        {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+        <kbd style={kbdStyle}>M</kbd>
       </button>
     </div>
   );

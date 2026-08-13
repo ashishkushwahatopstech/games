@@ -26,6 +26,18 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // Auto-submit score on game over and set has_played lock
+  useEffect(() => {
+    if (gameState === "gameover" && score > 0) {
+      localStorage.setItem("arcade_has_played", "true");
+      setSubmitting(true);
+      submitScore(score)
+        .then(() => refreshLeaderboard())
+        .catch(e => console.warn("Auto score submit failed", e))
+        .finally(() => setSubmitting(false));
+    }
+  }, [gameState]);
+
   // Audio synthesize helpers
   const playSound = (type: "jump" | "crash" | "point") => {
     if (muted || isPausedRef.current) return;
@@ -71,6 +83,8 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Disable image smoothing for crisp pixel graphics
     ctx.imageSmoothingEnabled = false;
 
     let animationFrameId: number;
@@ -129,7 +143,6 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       if (gameState !== "playing") return;
 
       if (isPausedRef.current) {
-        // Just draw a paused text overlay on the canvas and keep requestAnimationFrame active
         ctx.fillStyle = "rgba(18, 18, 18, 0.05)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -147,7 +160,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       ctx.fillStyle = "#faf6f0";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw decor (clouds)
+      // Draw decor
       ctx.fillStyle = "#e5ded4";
       decor.forEach(c => {
         c.x -= c.speed;
@@ -159,7 +172,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
         ctx.fill();
       });
 
-      // Draw ground line
+      // Ground line
       ctx.strokeStyle = "#121212";
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -198,7 +211,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
       ctx.fill();
       ctx.stroke();
 
-      // Handle Obstacles
+      // Obstacles
       obstacleTimer++;
       const minSpawnTime = Math.max(40, 100 - Math.floor(localScore / 100));
       if (obstacleTimer > minSpawnTime + Math.random() * 50) {
@@ -282,27 +295,15 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
   }, [gameState, isPaused]);
 
   const startGame = () => {
+    localStorage.setItem("arcade_has_played", "true");
     setScore(0);
     setIsPaused(false);
     isPausedRef.current = false;
     setGameState("playing");
   };
 
-  const handleScoreSubmit = async () => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      await submitScore(score);
-      refreshLeaderboard();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
       {/* Header Panel */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -348,12 +349,14 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem" }}>
               <div style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", color: "var(--accent-color)" }}>GAME OVER</div>
               <div style={{ fontSize: "1.5rem", fontWeight: "800" }}>SCORE: {score}</div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem" }}>
                 <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                {user && score > 0 && (
-                  <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                    {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                  </button>
+                {user && (
+                  submitting ? (
+                    <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#666" }}>SAVING SCORE...</span>
+                  ) : (
+                    <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "var(--secondary-color)" }}>SCORE SAVED!</span>
+                  )
                 )}
               </div>
             </div>

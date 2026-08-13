@@ -35,6 +35,18 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // Auto-submit score on game won and set has_played lock
+  useEffect(() => {
+    if (gameState === "won" && score > 0) {
+      localStorage.setItem("arcade_has_played", "true");
+      setSubmitting(true);
+      submitScore(score)
+        .then(() => refreshLeaderboard())
+        .catch(e => console.warn("Score auto submit failed", e))
+        .finally(() => setSubmitting(false));
+    }
+  }, [gameState]);
+
   const size = 9;
   const mineCount = 10;
 
@@ -147,10 +159,10 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
   const revealCell = (y: number, x: number) => {
     if (gameState !== "playing" || isPaused || board[y][x].isRevealed || board[y][x].isFlagged) return;
 
+    localStorage.setItem("arcade_has_played", "true");
     const newBoard = board.map(row => row.map(c => ({ ...c })));
     
     if (newBoard[y][x].isMine) {
-      // Boom! Game Over
       playSound("boom");
       newBoard.forEach(row => row.forEach(c => {
         if (c.isMine) c.isRevealed = true;
@@ -162,7 +174,6 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
 
     playSound("click");
     
-    // Flood fill algorithm
     const floodFill = (cy: number, cx: number) => {
       if (cy < 0 || cy >= size || cx < 0 || cx >= size) return;
       if (newBoard[cy][cx].isRevealed || newBoard[cy][cx].isFlagged) return;
@@ -180,7 +191,6 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
 
     floodFill(y, x);
 
-    // Score calculation (number of revealed non-mine tiles * 10 - timePenalty)
     let revealedCount = 0;
     newBoard.forEach(row => row.forEach(c => {
       if (c.isRevealed && !c.isMine) revealedCount++;
@@ -189,7 +199,6 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
     const nextScore = Math.max(0, revealedCount * 10 - Math.floor(time / 5));
     setScore(nextScore);
 
-    // Win condition check
     let win = true;
     newBoard.forEach(row => row.forEach(c => {
       if (!c.isMine && !c.isRevealed) win = false;
@@ -197,7 +206,6 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
 
     if (win) {
       playSound("win");
-      // Add big win bonus
       const bonusScore = nextScore + 100;
       setScore(bonusScore);
       setGameState("won");
@@ -225,21 +233,8 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
     }
   };
 
-  const handleScoreSubmit = async () => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      await submitScore(score);
-      refreshLeaderboard();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -300,12 +295,14 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1.2rem", zIndex: 5 }}>
                 <div style={{ fontFamily: "var(--font-game)", fontSize: "1.1rem", color: "var(--secondary-color)" }}>BOARD CLEAR!</div>
                 <div style={{ fontSize: "1.4rem", fontWeight: "800" }}>SCORE: {score}</div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem" }}>
                   <button onClick={initBoard} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                  {user && score > 0 && (
-                    <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                      {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                    </button>
+                  {user && (
+                    submitting ? (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#666" }}>SAVING SCORE...</span>
+                    ) : (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "var(--secondary-color)" }}>SCORE SAVED!</span>
+                    )
                   )}
                 </div>
               </div>

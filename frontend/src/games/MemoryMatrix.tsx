@@ -29,7 +29,18 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
-  // Audio synthesize helpers
+  // Auto-submit score on game over and set has_played lock
+  useEffect(() => {
+    if (gameState === "gameover" && score > 0) {
+      localStorage.setItem("arcade_has_played", "true");
+      setSubmitting(true);
+      submitScore(score)
+        .then(() => refreshLeaderboard())
+        .catch(e => console.warn("Score auto submit failed", e))
+        .finally(() => setSubmitting(false));
+    }
+  }, [gameState]);
+
   const playSound = (type: "correct" | "fail" | "gameover" | "reveal") => {
     if (muted || isPausedRef.current) return;
     try {
@@ -41,14 +52,14 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
 
       if (type === "correct") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime);
         gain.gain.setValueAtTime(0.08, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
         osc.start();
         osc.stop(ctx.currentTime + 0.15);
       } else if (type === "reveal") {
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
         gain.gain.setValueAtTime(0.05, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
         osc.start();
@@ -102,7 +113,6 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
     }
     setActiveTiles(tiles);
 
-    // After 1.5 seconds, hide pattern and let player guess
     setTimeout(() => {
       setGameState("player");
     }, 1500);
@@ -141,6 +151,7 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
   };
 
   const startGame = () => {
+    localStorage.setItem("arcade_has_played", "true");
     setScore(0);
     setStrikes(0);
     setIsPaused(false);
@@ -148,21 +159,8 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
     startLevel(0);
   };
 
-  const handleScoreSubmit = async () => {
-    if (!user) return;
-    setSubmitting(true);
-    try {
-      await submitScore(score);
-      refreshLeaderboard();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem", padding: "1rem", backgroundColor: "var(--bg-color)" }} className="fullscreen-compat">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
@@ -224,12 +222,14 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1.2rem", zIndex: 5 }}>
                 <div style={{ fontFamily: "var(--font-game)", fontSize: "1.1rem", color: "var(--accent-color)" }}>GAME OVER</div>
                 <div style={{ fontSize: "1.4rem", fontWeight: "800" }}>SCORE: {score}</div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem" }}>
                   <button onClick={startGame} className="neo-btn accent"><RefreshCw size={16} /> REPLAY</button>
-                  {user && score > 0 && (
-                    <button onClick={handleScoreSubmit} disabled={submitting} className="neo-btn secondary">
-                      {submitting ? "SUBMITTING..." : "SUBMIT SCORE"}
-                    </button>
+                  {user && (
+                    submitting ? (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "#666" }}>SAVING SCORE...</span>
+                    ) : (
+                      <span style={{ fontSize: "0.75rem", fontWeight: "800", color: "var(--secondary-color)" }}>SCORE SAVED!</span>
+                    )
                   )}
                 </div>
               </div>

@@ -206,7 +206,7 @@ export default {
       if (path.startsWith("/api/leaderboard/") && request.method === "GET") {
         const gameId = path.split("/").pop();
         const { results } = await env.DB.prepare(
-          "SELECT user_name, score, created_at FROM leaderboards WHERE game_id = ? ORDER BY score DESC LIMIT 10"
+          "SELECT user_name, MAX(score) as score, MAX(created_at) as created_at FROM leaderboards WHERE game_id = ? GROUP BY user_name ORDER BY score DESC LIMIT 10"
         )
           .bind(gameId)
           .all();

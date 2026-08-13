@@ -257,6 +257,13 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
             {user?.isGuest ? (
               <form onSubmit={handleUpdateGuestProfile} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <h3 style={{ fontSize: "1.3rem", fontWeight: "800" }}>Edit Guest Nickname</h3>
+                
+                {(localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")) && (
+                  <div style={{ color: "var(--accent-color)", border: "2px solid #121212", background: "#ffeef0", padding: "0.5rem", borderRadius: "4px", fontWeight: "800", fontSize: "0.8rem" }}>
+                    🔒 Nickname locked because you have started playing.
+                  </div>
+                )}
+
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                   <label style={{ fontWeight: "700", fontSize: "0.85rem" }}>Nickname</label>
                   <input 
@@ -264,19 +271,23 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
                     value={guestNickname}
                     onChange={(e) => setGuestNickname(e.target.value)}
                     maxLength={14}
+                    disabled={localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")}
                     style={{ 
                       padding: "0.5rem 1rem", 
                       fontSize: "1rem", 
                       fontWeight: "700", 
                       border: "3px solid #121212", 
                       borderRadius: "6px",
-                      backgroundColor: "#fff"
+                      backgroundColor: (localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")) ? "#e5ded4" : "#fff",
+                      cursor: (localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")) ? "not-allowed" : "text"
                     }}
                   />
                 </div>
-                <button type="submit" className="neo-btn accent" style={{ width: "100%", justifyContent: "center" }}>
-                  SAVE NICKNAME
-                </button>
+                {!(localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")) && (
+                  <button type="submit" className="neo-btn accent" style={{ width: "100%", justifyContent: "center" }}>
+                    SAVE NICKNAME
+                  </button>
+                )}
               </form>
             ) : (
               <h3 style={{ fontSize: "1.4rem", fontWeight: "800" }}>Sign In to Profile</h3>
