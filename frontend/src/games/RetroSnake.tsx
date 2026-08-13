@@ -188,7 +188,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>RETRO SNAKE</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>RETRO SNAKE</h2>
         
         <GameHUDControls 
           isPaused={isPaused}
@@ -201,8 +201,8 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
-          <div className="neo-card game-view-box" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#e2dcd0", width: "100%", maxWidth: "340px", height: "340px", border: "4px solid #121212" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", width: "100%" }}>
+          <div className="neo-card game-view-box" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#e2dcd0", width: "100%", maxWidth: "320px", aspectRatio: "1 / 1", height: "auto", border: "4px solid #121212", boxSizing: "border-box" }}>
             
             {/* Draw Grid */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridCount}, 1fr)`, gridTemplateRows: `repeat(${gridCount}, 1fr)`, width: "100%", height: "100%" }}>

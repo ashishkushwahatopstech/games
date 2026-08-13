@@ -281,7 +281,7 @@ export default function Sudoku({
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "0.9rem" }}>SUDOKU</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "0.9rem" }}>SUDOKU</h2>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button 
             onClick={() => setDifficulty(difficulty === "easy" ? "medium" : difficulty === "medium" ? "hard" : "easy")} 

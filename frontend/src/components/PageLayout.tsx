@@ -29,6 +29,112 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
     return () => window.removeEventListener("crt-filter-change", handleCrtChange);
   }, []);
 
+  // Retro 8-bit ambient background music loop using Web Audio API
+  useEffect(() => {
+    let audioCtx: any = null;
+    let intervalId: any = null;
+    
+    // Smooth pentatonic retro progression
+    const melody = [261.63, 329.63, 392.00, 329.63, 293.66, 392.00, 440.00, 392.00];
+    let noteIndex = 0;
+
+    const startSequencer = () => {
+      if (volume === 0) return;
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+
+      const tick = () => {
+        if (!audioCtx || audioCtx.state === "suspended" || volume === 0) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(melody[noteIndex], now);
+        
+        // Soft volume envelope to be non-intrusive
+        gain.gain.setValueAtTime((volume / 100) * 0.02, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+        
+        osc.start(now);
+        osc.stop(now + 0.6);
+        
+        noteIndex = (noteIndex + 1) % melody.length;
+      };
+
+      if (!intervalId) {
+        intervalId = setInterval(tick, 900);
+      }
+    };
+
+    const handleInteract = () => {
+      startSequencer();
+      window.removeEventListener("click", handleInteract);
+      window.removeEventListener("touchstart", handleInteract);
+    };
+
+    window.addEventListener("click", handleInteract);
+    window.addEventListener("touchstart", handleInteract);
+
+    // Keep sequencer state sync with volume adjustments live
+    if (volume > 0) {
+      if (audioCtx && audioCtx.state === "running") {
+        startSequencer();
+      }
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      if (audioCtx) {
+        audioCtx.close();
+      }
+    };
+  }, [volume]);
+
+  // Global button click SFX interceptor
+  useEffect(() => {
+    const playClick = () => {
+      if (volume === 0) return;
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime((volume / 100) * 0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch (e) {}
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "BUTTON" ||
+        target.tagName === "A" ||
+        target.classList.contains("neo-btn") ||
+        target.closest("button") ||
+        target.closest(".neo-btn")
+      ) {
+        playClick();
+      }
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [volume]);
+
   const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://127.0.0.1:8787" 
     : "https://play-backend.flowmaticai.workers.dev";

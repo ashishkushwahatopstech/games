@@ -152,7 +152,7 @@ export default function WordChase({ onBack, user, submitScore, leaderboard, refr
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>WORD CHASE</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>WORD CHASE</h2>
         <button onClick={initGame} className="neo-btn" style={{ padding: "0.5rem" }}><RefreshCw size={18} /></button>
       </div>
 

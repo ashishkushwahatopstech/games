@@ -240,7 +240,7 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>MINESWEEPER BLITZ</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>MINESWEEPER BLITZ</h2>
         
         <GameHUDControls 
           isPaused={isPaused}
@@ -254,7 +254,7 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         {/* Play Space */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", width: "100%" }}>
           
           <div style={{ display: "flex", justifySelf: "center", gap: "2rem", fontWeight: "800", fontSize: "1.1rem" }}>
             <div>SCORE: {score}</div>
@@ -268,8 +268,9 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
               position: "relative", 
               backgroundColor: "#faf6f0", 
               width: "100%", 
-              maxWidth: "340px", 
-              height: "340px", 
+              maxWidth: "320px", 
+              aspectRatio: "1 / 1",
+              height: "auto", 
               boxSizing: "border-box",
               border: "4px solid #121212"
             }}

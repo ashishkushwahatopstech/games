@@ -338,7 +338,7 @@ export default function TicTacToeArena({
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "0.9rem" }}>TIC-TAC-TOE ARENA</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "0.9rem" }}>TIC-TAC-TOE ARENA</h2>
         <div style={{ fontWeight: "800", display: "flex", alignItems: "center", gap: "0.4rem" }}>
           <Users size={16} /> ARENA 1v1
         </div>

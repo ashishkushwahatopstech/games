@@ -309,7 +309,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>DINO DASH</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>DINO DASH</h2>
         
         <GameHUDControls 
           isPaused={isPaused}
@@ -323,7 +323,21 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         {/* Play Area */}
-        <div className="neo-card game-view-box" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#faf6f0", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div 
+          className="neo-card game-view-box" 
+          style={{ 
+            padding: "0", 
+            overflow: "hidden", 
+            position: "relative", 
+            backgroundColor: "#faf6f0", 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "600px",
+            boxSizing: "border-box"
+          }}
+        >
           <canvas
             ref={canvasRef}
             width={600}
@@ -336,6 +350,37 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
               }
             }}
           />
+
+          {/* Jump Button below canvas for mobile players */}
+          {gameState === "playing" && !isPaused && (
+            <div style={{ display: "flex", width: "100%", padding: "1rem", boxSizing: "border-box", justifyContent: "center", backgroundColor: "#fff", borderTop: "3px solid #121212" }}>
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  const jumpEvent = new KeyboardEvent("keydown", { code: "Space" });
+                  window.dispatchEvent(jumpEvent);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const jumpEvent = new KeyboardEvent("keydown", { code: "Space" });
+                  window.dispatchEvent(jumpEvent);
+                }}
+                className="neo-btn accent"
+                style={{
+                  width: "100%",
+                  maxWidth: "280px",
+                  height: "55px",
+                  fontSize: "1.25rem",
+                  fontWeight: "900",
+                  justifyContent: "center",
+                  touchAction: "manipulation",
+                  userSelect: "none"
+                }}
+              >
+                TAP TO JUMP 🦖
+              </button>
+            </div>
+          )}
 
           {gameState === "idle" && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.9)", gap: "1rem" }}>

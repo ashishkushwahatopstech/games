@@ -473,7 +473,7 @@ export default function DualPong({ onBack }: DualPongProps) {
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>DUAL PONG / BRICKS</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>DUAL PONG / BRICKS</h2>
         
         <GameHUDControls 
           isPaused={isPaused}

@@ -288,7 +288,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text" style={{ fontSize: "1rem" }}>STACKER 3D</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>STACKER 3D</h2>
         
         <GameHUDControls 
           isPaused={isPaused}
@@ -313,7 +313,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
             flexDirection: "column", 
             alignItems: "center",
             width: "100%",
-            maxWidth: "340px",
+            maxWidth: "320px",
             aspectRatio: "1 / 1",
             boxSizing: "border-box",
             border: "4px solid #121212",
