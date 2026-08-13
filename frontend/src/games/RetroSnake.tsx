@@ -203,7 +203,7 @@ export default function RetroSnake({ onBack, user, submitScore, leaderboard, ref
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
-          <div className="neo-card" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#e2dcd0", width: "100%", maxWidth: "340px", height: "340px", border: "4px solid #121212" }}>
+          <div className="neo-card game-view-box" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#e2dcd0", width: "100%", maxWidth: "340px", height: "340px", border: "4px solid #121212" }}>
             
             {/* Draw Grid */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridCount}, 1fr)`, gridTemplateRows: `repeat(${gridCount}, 1fr)`, width: "100%", height: "100%" }}>

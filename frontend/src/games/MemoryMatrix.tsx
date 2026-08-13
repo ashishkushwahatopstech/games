@@ -191,7 +191,7 @@ export default function MemoryMatrix({ onBack, user, submitScore, leaderboard, r
           </div>
 
           <div 
-            className="neo-card" 
+            className="neo-card game-view-box" 
             style={{ 
               padding: "1rem", 
               position: "relative", 

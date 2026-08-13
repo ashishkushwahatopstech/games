@@ -41,6 +41,34 @@ export default function GameHUDControls({
     }
   };
 
+  // Global keyboard shortcuts: Esc/P (pause), M (mute), F (fullscreen)
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // Ignore shortcut key triggers if user is typing in a form input or text area
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (key === "p" || e.key === "Escape") {
+        if (onTogglePause) {
+          e.preventDefault();
+          onTogglePause();
+        }
+      } else if (key === "m") {
+        e.preventDefault();
+        onToggleMute();
+      } else if (key === "f") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [isPaused, onTogglePause, muted, onToggleMute]);
+
   return (
     <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
       {onTogglePause && isPaused !== undefined && (
@@ -48,7 +76,7 @@ export default function GameHUDControls({
           onClick={onTogglePause} 
           className="neo-btn" 
           style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
-          title={isPaused ? "Play" : "Pause"}
+          title={isPaused ? "Play [P]" : "Pause [P]"}
         >
           {isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
         </button>
@@ -69,7 +97,7 @@ export default function GameHUDControls({
         onClick={toggleFullscreen} 
         className="neo-btn blue" 
         style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
-        title="Toggle Fullscreen"
+        title="Toggle Fullscreen [F]"
       >
         {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
       </button>
@@ -78,7 +106,7 @@ export default function GameHUDControls({
         onClick={onToggleMute} 
         className="neo-btn" 
         style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem" }}
-        title={muted ? "Unmute" : "Mute"}
+        title={muted ? "Unmute [M]" : "Mute [M]"}
       >
         {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
       </button>

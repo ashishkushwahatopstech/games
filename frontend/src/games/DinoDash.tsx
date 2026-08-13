@@ -71,6 +71,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
 
     let animationFrameId: number;
     
@@ -321,7 +322,7 @@ export default function DinoDash({ onBack, user, submitScore, leaderboard, refre
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         {/* Play Area */}
-        <div className="neo-card" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#faf6f0", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div className="neo-card game-view-box" style={{ padding: "0", overflow: "hidden", position: "relative", backgroundColor: "#faf6f0", display: "flex", flexDirection: "column", alignItems: "center" }}>
           <canvas
             ref={canvasRef}
             width={600}

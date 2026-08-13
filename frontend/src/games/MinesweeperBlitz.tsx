@@ -267,7 +267,7 @@ export default function MinesweeperBlitz({ onBack, user, submitScore, leaderboar
           </div>
 
           <div 
-            className="neo-card" 
+            className="neo-card game-view-box" 
             style={{ 
               padding: "1rem", 
               position: "relative", 

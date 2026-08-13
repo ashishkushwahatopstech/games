@@ -235,4 +235,47 @@ body, canvas, button, .neo-card, .key-btn, .switch, .slider, h1, h2, h3, h4, spa
   -ms-user-select: none !important;
 }
 
+/* Crisp, pixelated rendering for canvas elements during scaling (anti-blur) */
+canvas {
+  image-rendering: -moz-crisp-edges !important;
+  image-rendering: -webkit-crisp-edges !important;
+  image-rendering: pixelated !important;
+  image-rendering: crisp-edges !important;
+}
+/* Fullscreen ergonomic layouts for games */
+.fullscreen-compat:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  padding: 1rem !important;
+  margin: 0 !important;
+  background-color: var(--bg-color) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
 
+.fullscreen-compat:fullscreen canvas {
+  max-height: 75vh !important;
+  max-width: 95vw !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+.fullscreen-compat:fullscreen .game-layout-container {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  gap: 0.5rem !important;
+}
+
+/* Hide sideboards/leaderboards when in fullscreen to focus on game action */
+.fullscreen-compat:fullscreen .neo-card:not(.game-view-box):not(:first-child) {
+  display: none !important;
+}

@@ -304,7 +304,7 @@ export default function Stacker({ onBack, user, submitScore, leaderboard, refres
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         {/* Arena */}
         <div 
-          className="neo-card" 
+          className="neo-card game-view-box" 
           style={{ 
             padding: "0", 
             overflow: "hidden", 
