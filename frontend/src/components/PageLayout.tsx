@@ -13,12 +13,21 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
   const [guestNickname, setGuestNickname] = useState("");
   const [loginError, setLoginError] = useState("");
   const [openDrawer, setOpenDrawer] = useState(false);
-  
+  const [crtEnabled, setCrtEnabled] = useState(() => localStorage.getItem("arcade_crt") === "true");
+
   // Audio volume state mapped to localStorage
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem("arcade_volume");
     return saved ? Number(saved) : 80;
   });
+
+  useEffect(() => {
+    const handleCrtChange = (e: any) => {
+      setCrtEnabled(e.detail);
+    };
+    window.addEventListener("crt-filter-change", handleCrtChange);
+    return () => window.removeEventListener("crt-filter-change", handleCrtChange);
+  }, []);
 
   const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://127.0.0.1:8787" 
@@ -189,7 +198,19 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative" }}>
+      {crtEnabled && (
+        <div 
+          style={{ 
+            position: "fixed", 
+            inset: 0, 
+            pointerEvents: "none", 
+            zIndex: 99999, 
+            background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03))",
+            backgroundSize: "100% 4px, 6px 100%"
+          }}
+        />
+      )}
       {/* Header */}
       <header style={{ borderBottom: "3px solid #121212", backgroundColor: "#fff", padding: "1rem 0" }}>
         <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -308,7 +329,7 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ fontSize: "1.2rem", fontWeight: "900", margin: 0 }}>ARCADE DIRECTORY</h3>
+              <h3 style={{ fontSize: "1.2rem", fontWeight: "900", margin: 0 }}>ARCADE MENU</h3>
               <button 
                 onClick={() => setOpenDrawer(false)} 
                 className="neo-btn" 
@@ -318,46 +339,147 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
               </button>
             </div>
 
-            {/* Quick Navigation Links */}
+            {/* Lobby Link */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#666" }}>EXPLORE LOBBY</span>
-              <a href="/" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🏠 Main Dashboard</a>
-              <a href="/dino.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🦖 Dino Dash</a>
-              <a href="/stacker.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🧱 Stacker 3D</a>
-              <a href="/snake.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🐍 Retro Snake</a>
-              <a href="/memory.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🧠 Memory Matrix</a>
-              <a href="/wordchase.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>✍️ Word Chase</a>
-              <a href="/minesweeper.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>💣 Minesweeper</a>
-              <a href="/clicker.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🖱️ Cyber Clicker</a>
-              <a href="/tictactoe.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>⭕ Tic-Tac-Toe Arena</a>
-              <a href="/pong.html" className="neo-btn" style={{ justifyContent: "flex-start", width: "100%" }}>🏓 Dual Pong</a>
+              <a href="/" className="neo-btn accent" style={{ justifyContent: "center", width: "100%", fontWeight: "900" }}>
+                🏠 RETURN TO LOBBY
+              </a>
             </div>
 
-            {/* Audio Settings */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#666" }}>GLOBAL AUDIO VOLUME</span>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", border: "2px solid #121212", padding: "0.5rem 0.8rem", borderRadius: "6px" }}>
-                <Volume2 size={18} />
+            {/* Profile Menu */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "3px solid #121212", padding: "1rem", borderRadius: "6px", backgroundColor: "#faf6f0" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#666" }}>USER PROFILE</span>
+              {user ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <img 
+                      src={user.picture || "https://api.dicebear.com/7.x/pixel-art/svg"} 
+                      alt="" 
+                      style={{ width: "40px", height: "40px", borderRadius: "50%", border: "2px solid #121212" }}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontWeight: "900", fontSize: "0.95rem", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</span>
+                      <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "#666", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {user.isGuest ? "Guest Player" : user.email}
+                      </span>
+                    </div>
+                  </div>
+
+                  {user.isGuest && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                      <input 
+                        type="text" 
+                        value={guestNickname}
+                        onChange={(e) => setGuestNickname(e.target.value)}
+                        placeholder="Nickname"
+                        maxLength={14}
+                        disabled={localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")}
+                        style={{
+                          padding: "0.4rem",
+                          fontSize: "0.85rem",
+                          fontWeight: "800",
+                          border: "2px solid #121212",
+                          borderRadius: "4px",
+                          width: "100%",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                      {!(localStorage.getItem("arcade_has_played") === "true" || (window.location.pathname !== "/" && window.location.pathname !== "/index.html")) ? (
+                        <button 
+                          onClick={handleUpdateGuestProfile} 
+                          className="neo-btn secondary"
+                          style={{ padding: "0.25rem", fontSize: "0.75rem", justifyContent: "center" }}
+                        >
+                          SAVE NAME
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: "0.7rem", color: "var(--accent-color)", fontWeight: "800" }}>🔒 Locked (Already Playing)</span>
+                      )}
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={handleLogout} 
+                    className="neo-btn" 
+                    style={{ padding: "0.4rem", fontSize: "0.8rem", width: "100%", justifyContent: "center", backgroundColor: "#fff" }}
+                  >
+                    <LogOut size={14} /> LOGOUT
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <p style={{ fontSize: "0.8rem", fontWeight: "600", color: "#666", margin: 0 }}>You are playing anonymously.</p>
+                  <button 
+                    onClick={() => { setOpenDrawer(false); setShowLoginModal(true); }} 
+                    className="neo-btn accent"
+                    style={{ padding: "0.5rem", fontSize: "0.8rem", width: "100%", justifyContent: "center" }}
+                  >
+                    <LogIn size={14} /> SIGN IN / REGISTER
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Settings Menu */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "3px solid #121212", padding: "1rem", borderRadius: "6px" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: "800", color: "#666" }}>GAMEPLAY SETTINGS</span>
+              
+              {/* Volume */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "800" }}>Audio Volume</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Volume2 size={16} />
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={volume}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setVolume(val);
+                      localStorage.setItem("arcade_volume", String(val));
+                      window.dispatchEvent(new CustomEvent("volume-change", { detail: val }));
+                    }}
+                    style={{ width: "100%", cursor: "pointer" }}
+                  />
+                  <span style={{ fontWeight: "900", fontSize: "0.8rem", width: "30px" }}>{volume}%</span>
+                </div>
+              </div>
+
+              {/* CRT Filter */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "800" }}>CRT Retro Filter</span>
                 <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  value={volume}
+                  type="checkbox"
+                  checked={localStorage.getItem("arcade_crt") === "true"}
                   onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setVolume(val);
-                    localStorage.setItem("arcade_volume", String(val));
-                    window.dispatchEvent(new CustomEvent("volume-change", { detail: val }));
+                    const checked = e.target.checked;
+                    localStorage.setItem("arcade_crt", checked ? "true" : "false");
+                    // Reload or dispatch state update to force re-render
+                    window.dispatchEvent(new CustomEvent("crt-filter-change", { detail: checked }));
                   }}
-                  style={{ width: "100%", cursor: "pointer" }}
+                  style={{ width: "18px", height: "18px", cursor: "pointer" }}
                 />
-                <span style={{ fontWeight: "800", fontSize: "0.85rem", width: "30px" }}>{volume}%</span>
+              </div>
+
+              {/* Sound Effects */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "800" }}>Sound Effects (SFX)</span>
+                <input 
+                  type="checkbox"
+                  checked={localStorage.getItem("arcade_sfx") !== "false"}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    localStorage.setItem("arcade_sfx", checked ? "true" : "false");
+                  }}
+                  style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                />
               </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "auto", borderTop: "2px solid #e2dcd0", paddingTop: "1rem" }}>
               <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "#666" }}>
-                Select a game above to start playing! View Rules and FAQs at the bottom of the game screens.
+                Arcade menu options are saved locally. Adjust filters and audio levels instantly during active games!
               </div>
             </div>
 

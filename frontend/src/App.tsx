@@ -16,7 +16,11 @@ const FALLBACK_GAMES = [
   { id: "minesweeper", name: "Minesweeper Blitz", is_active: 1, is_mobile_friendly: 1, url: "/minesweeper.html" },
   { id: "cyber-clicker", name: "Cyber Clicker", is_active: 1, is_mobile_friendly: 1, url: "/clicker.html" },
   { id: "tic-tac-toe-online", name: "Tic-Tac-Toe Arena (Online 1v1)", is_active: 1, is_mobile_friendly: 1, url: "/tictactoe.html" },
-  { id: "dual-pong", name: "Dual Pong (Local 1v1)", is_active: 1, is_mobile_friendly: 1, url: "/pong.html" }
+  { id: "dual-pong", name: "Dual Pong (Local 1v1)", is_active: 1, is_mobile_friendly: 1, url: "/pong.html" },
+  { id: "ludo", name: "Ludo Classic", is_active: 1, is_mobile_friendly: 1, url: "/ludo.html" },
+  { id: "snakeladder", name: "Snakes & Ladders", is_active: 1, is_mobile_friendly: 1, url: "/snakeladder.html" },
+  { id: "nutsbolts", name: "Nuts & Bolts Sort", is_active: 1, is_mobile_friendly: 1, url: "/nutsbolts.html" },
+  { id: "sudoku", name: "Sudoku Retro", is_active: 1, is_mobile_friendly: 1, url: "/sudoku.html" }
 ];
 
 export default function App() {

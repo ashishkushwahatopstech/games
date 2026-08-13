@@ -45,4 +45,8 @@ INSERT OR IGNORE INTO games (id, name, is_active, is_mobile_friendly) VALUES
 ('minesweeper', 'Minesweeper Blitz', 1, 1),
 ('cyber-clicker', 'Cyber Clicker', 1, 1),
 ('tic-tac-toe-online', 'Tic-Tac-Toe Arena (Online 1v1)', 1, 1),
-('dual-pong', 'Dual Pong (Local 1v1)', 1, 1);
+('dual-pong', 'Dual Pong (Local 1v1)', 1, 1),
+('ludo', 'Ludo Classic', 1, 1),
+('snakeladder', 'Snakes & Ladders', 1, 1),
+('nutsbolts', 'Nuts & Bolts Sort', 1, 1),
+('sudoku', 'Sudoku Retro', 1, 1);

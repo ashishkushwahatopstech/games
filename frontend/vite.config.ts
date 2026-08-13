@@ -19,6 +19,10 @@ export default defineConfig({
         clicker: resolve(__dirname, 'clicker.html'),
         tictactoe: resolve(__dirname, 'tictactoe.html'),
         pong: resolve(__dirname, 'pong.html'),
+        ludo: resolve(__dirname, 'ludo.html'),
+        snakeladder: resolve(__dirname, 'snakeladder.html'),
+        nutsbolts: resolve(__dirname, 'nutsbolts.html'),
+        sudoku: resolve(__dirname, 'sudoku.html'),
       }
     }
   }
