@@ -279,3 +279,28 @@ canvas {
 .fullscreen-compat:fullscreen .neo-card:not(.game-view-box):not(:first-child) {
   display: none !important;
 }
+
+/* Responsive mobile navbar & general elements */
+@media (max-width: 600px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  header .container {
+    padding: 0 1rem !important;
+  }
+
+  footer .container {
+    flex-direction: column !important;
+    gap: 0.8rem !important;
+    text-align: center !important;
+    align-items: center !important;
+  }
+
+  /* Make sure titles don't overflow on small screens */
+  .game-title-text {
+    font-size: 0.85rem !important;
+    text-align: center !important;
+  }
+}
+

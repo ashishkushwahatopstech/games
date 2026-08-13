@@ -316,22 +316,48 @@ export default {
           return errorResponse(e.message, e.message === "USER_SUSPENDED" ? 403 : 401);
         }
 
-        // Check if there is an active match
-        const activeMatch = await env.DB.prepare(
-          "SELECT * FROM active_matches WHERE (player1_email = ? OR player2_email = ?) AND winner_email IS NULL"
+        // Check the most recent match for this user
+        const match = await env.DB.prepare(
+          "SELECT * FROM active_matches WHERE player1_email = ? OR player2_email = ? ORDER BY last_move_at DESC LIMIT 1"
         )
           .bind(user.email, user.email)
           .first<any>();
 
-        if (activeMatch) {
-          return jsonResponse({
-            status: "matched",
-            matchId: activeMatch.id,
-            player1: activeMatch.player1_email,
-            player2: activeMatch.player2_email,
-            boardState: JSON.parse(activeMatch.board_state),
-            currentTurn: activeMatch.current_turn,
-          });
+        if (match) {
+          if (match.winner_email === null) {
+            return jsonResponse({
+              status: "matched",
+              matchId: match.id,
+              player1: match.player1_email,
+              player2: match.player2_email,
+              boardState: JSON.parse(match.board_state),
+              currentTurn: match.current_turn,
+            });
+          } else {
+            // Check if game was concluded recently (less than 90 seconds)
+            const dateStr = match.last_move_at.replace(" ", "T");
+            const matchTime = new Date(dateStr.indexOf("Z") === -1 ? dateStr + "Z" : dateStr).getTime();
+            const elapsed = Date.now() - matchTime;
+            
+            if (elapsed < 90 * 1000) {
+              const myVote = await env.KV.get(`matchmaking:rematch:${match.id}:${user.email}`);
+              const opponentEmail = user.email === match.player1_email ? match.player2_email : match.player1_email;
+              const opponentVote = await env.KV.get(`matchmaking:rematch:${match.id}:${opponentEmail}`);
+
+              return jsonResponse({
+                status: "gameover",
+                matchId: match.id,
+                player1: match.player1_email,
+                player2: match.player2_email,
+                boardState: JSON.parse(match.board_state),
+                winner: match.winner_email,
+                rematchStatus: {
+                  me: myVote === "voted",
+                  opponent: opponentVote === "voted"
+                }
+              });
+            }
+          }
         }
 
         // Check if user is in KV matchmaking queue
@@ -392,6 +418,53 @@ export default {
         }
       }
 
+      if (path === "/api/matchmaking/rematch" && request.method === "POST") {
+        let user;
+        try {
+          user = await authenticateUser(request, env);
+        } catch (e: any) {
+          return errorResponse(e.message, e.message === "USER_SUSPENDED" ? 403 : 401);
+        }
+
+        const { matchId } = await request.json() as any;
+        if (!matchId) return errorResponse("Missing match ID");
+
+        const match = await env.DB.prepare("SELECT * FROM active_matches WHERE id = ?")
+          .bind(matchId)
+          .first<any>();
+
+        if (!match) return errorResponse("Match not found");
+
+        // Vote for rematch in KV
+        await env.KV.put(`matchmaking:rematch:${matchId}:${user.email}`, "voted", { expirationTtl: 120 });
+
+        // Check if opponent voted too
+        const opponentEmail = user.email === match.player1_email ? match.player2_email : match.player1_email;
+        const opponentVote = await env.KV.get(`matchmaking:rematch:${matchId}:${opponentEmail}`);
+
+        if (opponentVote === "voted") {
+          // Both voted! Reset the match in D1 database to play again
+          const cleanBoard = JSON.stringify({
+            board: Array(9).fill(null),
+            moves: []
+          });
+          
+          await env.DB.prepare(
+            "UPDATE active_matches SET board_state = ?, winner_email = NULL, current_turn = player1_email, last_move_at = CURRENT_TIMESTAMP WHERE id = ?"
+          )
+            .bind(cleanBoard, matchId)
+            .run();
+
+          // Delete voting keys
+          await env.KV.delete(`matchmaking:rematch:${matchId}:${user.email}`);
+          await env.KV.delete(`matchmaking:rematch:${matchId}:${opponentEmail}`);
+
+          return jsonResponse({ success: true, reset: true });
+        }
+
+        return jsonResponse({ success: true, reset: false });
+      }
+
       if (path === "/api/matchmaking/leave" && request.method === "POST") {
         let user;
         try {
@@ -408,7 +481,7 @@ export default {
 
         // Resign active game if any
         await env.DB.prepare(
-          "UPDATE active_matches SET winner_email = (CASE WHEN player1_email = ? THEN player2_email ELSE player1_email END) WHERE (player1_email = ? OR player2_email = ?) AND winner_email IS NULL"
+          "UPDATE active_matches SET winner_email = (CASE WHEN player1_email = ? THEN player2_email ELSE player1_email END), last_move_at = CURRENT_TIMESTAMP WHERE (player1_email = ? OR player2_email = ?) AND winner_email IS NULL"
         )
           .bind(user.email, user.email, user.email)
           .run();

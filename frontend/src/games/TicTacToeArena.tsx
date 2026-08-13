@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, RefreshCw, Trophy, Users, AlertCircle } from "lucide-react";
+import { ArrowLeft, RefreshCw, Trophy, Users, AlertCircle, RefreshCcw } from "lucide-react";
 
 interface TicTacToeArenaProps {
   onBack: () => void;
@@ -25,9 +25,9 @@ export default function TicTacToeArena({
   const [errorMsg, setErrorMsg] = useState("");
   const [submittingMove, setSubmittingMove] = useState(false);
 
-  // Matchmaking status polling loop
+  // Matchmaking status polling loop (polls during active search, active gameplay, and gameover rematch screen)
   useEffect(() => {
-    if (status !== "searching" && status !== "matched") return;
+    if (status !== "searching" && status !== "matched" && status !== "gameover") return;
 
     const pollStatus = async () => {
       if (!token) return;
@@ -49,16 +49,22 @@ export default function TicTacToeArena({
         } else if (data.status === "matched") {
           setStatus("matched");
           setMatchState(data);
+        } else if (data.status === "gameover") {
+          setStatus("gameover");
+          setMatchState(data);
         } else {
-          setStatus("idle");
-          setMatchState(null);
+          // If match is deleted or timed out on server, clear screen unless in gameover rematch wait
+          if (status !== "gameover") {
+            setStatus("idle");
+            setMatchState(null);
+          }
         }
       } catch (e) {
         console.error("Matchmaking status check failed", e);
       }
     };
 
-    pollStatus(); // initial check
+    pollStatus();
     const interval = setInterval(pollStatus, 1500);
     return () => clearInterval(interval);
   }, [status, token, backendUrl]);
@@ -104,8 +110,8 @@ export default function TicTacToeArena({
 
   const makeMove = async (cellIndex: number) => {
     if (!token || !matchState || submittingMove) return;
-    if (matchState.currentTurn !== user.email) return; // not my turn
-    if (matchState.boardState.board[cellIndex] !== null) return; // occupied
+    if (matchState.currentTurn !== user.email) return;
+    if (matchState.boardState.board[cellIndex] !== null) return;
 
     setSubmittingMove(true);
     try {
@@ -123,6 +129,9 @@ export default function TicTacToeArena({
         setErrorMsg(data.error);
       } else {
         setMatchState(data);
+        if (data.winner) {
+          setStatus("gameover");
+        }
       }
     } catch (e) {
       setErrorMsg("Failed to record move");
@@ -131,27 +140,50 @@ export default function TicTacToeArena({
     }
   };
 
+  const requestRematch = async () => {
+    if (!token || !matchState) return;
+    try {
+      const res = await fetch(`${backendUrl}/api/matchmaking/rematch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchId: matchState.matchId })
+      });
+      const data = await res.json() as any;
+      if (data.success) {
+        // Toggle local rematch indicators immediately
+        setMatchState((prev: any) => ({
+          ...prev,
+          rematchStatus: {
+            ...prev?.rematchStatus,
+            me: true
+          }
+        }));
+      }
+    } catch (e) {
+      console.warn("Rematch request failed", e);
+    }
+  };
+
   // Check if player won
   const isMyTurn = matchState && matchState.currentTurn === user?.email;
   const isPlayer1 = matchState && matchState.player1 === user?.email;
-  const mySymbol = isPlayer1 ? "X" : "O";
-  const opponentSymbol = isPlayer1 ? "O" : "X";
 
-  // When game finishes, report scoreboard updates
+  // Record stats to leaderboard on victory
   useEffect(() => {
-    if (matchState && matchState.winner) {
-      setStatus("gameover");
-      if (matchState.winner === user?.email) {
-        // Record 100 points on scoreboard for win
-        fetch(`${backendUrl}/api/leaderboard/tic-tac-toe-online`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ score: 100 })
-        }).then(() => refreshLeaderboard());
-      }
+    if (matchState && matchState.winner && matchState.winner === user?.email) {
+      fetch(`${backendUrl}/api/leaderboard/tic-tac-toe-online`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ score: 100 })
+      })
+        .then(() => refreshLeaderboard())
+        .catch(err => console.warn(err));
     }
   }, [matchState?.winner]);
 
@@ -221,22 +253,24 @@ export default function TicTacToeArena({
                 </div>
 
                 {/* Status Bar */}
-                <div style={{ fontSize: "1rem", fontWeight: "800", color: isMyTurn ? "var(--secondary-color)" : "#666" }}>
+                <div style={{ fontSize: "1.2rem", fontWeight: "800", color: isMyTurn ? "var(--secondary-color)" : "#666" }}>
                   {isMyTurn ? "👉 IT IS YOUR TURN!" : "⏳ Opponent is thinking..."}
                 </div>
 
-                {/* Grid */}
+                {/* Fixed Grid */}
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "6px",
+                    gridTemplateRows: "repeat(3, 1fr)",
+                    gap: "8px",
                     width: "240px",
                     height: "240px",
                     border: "4px solid var(--border-color)",
-                    padding: "6px",
+                    padding: "8px",
                     backgroundColor: "var(--border-color)",
-                    borderRadius: "8px"
+                    borderRadius: "8px",
+                    boxSizing: "border-box"
                   }}
                 >
                   {matchState.boardState.board.map((cell: any, idx: number) => (
@@ -246,11 +280,17 @@ export default function TicTacToeArena({
                       disabled={!isMyTurn || cell !== null}
                       style={{
                         backgroundColor: cell === "X" ? "var(--accent-color)" : cell === "O" ? "var(--blue-accent)" : "#fff",
-                        border: "none",
-                        borderRadius: "4px",
+                        border: "3px solid #121212",
+                        borderRadius: "6px",
                         fontSize: "2rem",
                         fontWeight: "900",
                         color: "#fff",
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        boxSizing: "border-box",
                         cursor: isMyTurn && cell === null ? "pointer" : "default"
                       }}
                     >
@@ -264,14 +304,36 @@ export default function TicTacToeArena({
             )}
 
             {status === "gameover" && matchState && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.2rem" }}>
                 <h2 style={{ fontFamily: "var(--font-game)", fontSize: "1.2rem", color: matchState.winner === user.email ? "var(--secondary-color)" : "var(--accent-color)" }}>
                   {matchState.winner === "DRAW" ? "🤝 DRAW MATCH!" : matchState.winner === user.email ? "🏆 YOU WON!" : "💀 YOU LOST!"}
                 </h2>
-                <p style={{ fontWeight: "700" }}>Game concluded.</p>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={joinQueue} className="neo-btn accent">FIND NEW MATCH</button>
-                  <button onClick={() => setStatus("idle")} className="neo-btn secondary">DASHBOARD</button>
+                
+                {/* Rematch state messages */}
+                {matchState.rematchStatus && (
+                  <div style={{ fontSize: "0.85rem", fontWeight: "800", color: "#666", padding: "0.2rem 0.6rem", border: "2px dashed #121212", borderRadius: "4px" }}>
+                    {matchState.rematchStatus.me && !matchState.rematchStatus.opponent && "Waiting for opponent rematch decision..."}
+                    {!matchState.rematchStatus.me && matchState.rematchStatus.opponent && "Opponent wants a rematch!"}
+                    {matchState.rematchStatus.me && matchState.rematchStatus.opponent && "Rematch agreed! Starting..."}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%", maxWidth: "250px" }}>
+                  <button 
+                    onClick={requestRematch} 
+                    disabled={matchState.rematchStatus?.me}
+                    className="neo-btn accent" 
+                    style={{ justifyContent: "center", gap: "0.5rem" }}
+                  >
+                    <RefreshCcw size={16} /> 
+                    {matchState.rematchStatus?.me ? "REMATCH REQUESTED" : "PLAY AGAIN"}
+                  </button>
+                  <button onClick={joinQueue} className="neo-btn secondary" style={{ justifyContent: "center" }}>
+                    SEARCH NEW OPPONENT
+                  </button>
+                  <button onClick={() => setStatus("idle")} className="neo-btn" style={{ justifyContent: "center", backgroundColor: "#ccc" }}>
+                    DASHBOARD
+                  </button>
                 </div>
               </div>
             )}
@@ -286,29 +348,32 @@ export default function TicTacToeArena({
               {leaderboard.length === 0 ? (
                 <p style={{ color: "#666", fontSize: "0.9rem" }}>No match history recorded.</p>
               ) : (
-                leaderboard.map((entry, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "0.5rem",
-                      border: "2px solid var(--border-color)",
-                      borderRadius: "4px",
-                      backgroundColor: idx === 0 ? "var(--primary-color)" : "#fff",
-                      fontWeight: "700",
-                      fontSize: "0.9rem"
-                    }}
-                  >
-                    <span style={{ display: "flex", gap: "0.4rem" }}>
-                      <span>#{idx + 1}</span>
-                      <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {entry.user_name}
+                leaderboard.map((entry, idx) => {
+                  const isCurrentUser = user && entry.user_name === user.name;
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "0.5rem",
+                        border: "2px solid var(--border-color)",
+                        borderRadius: "4px",
+                        backgroundColor: idx === 0 ? "var(--primary-color)" : isCurrentUser ? "var(--secondary-color)" : "#fff",
+                        fontWeight: "700",
+                        fontSize: "0.9rem"
+                      }}
+                    >
+                      <span style={{ display: "flex", gap: "0.4rem" }}>
+                        <span>#{idx + 1}</span>
+                        <span style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {entry.user_name}
+                        </span>
                       </span>
-                    </span>
-                    <span>{entry.score} wins</span>
-                  </div>
-                ))
+                      <span>{entry.score} wins</span>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
