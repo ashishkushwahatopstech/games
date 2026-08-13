@@ -175,7 +175,7 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
               color: "inherit"
             }}
           >
-            <Gamepad2 size={24} /> ARCADE.STUDIO
+            <Gamepad2 size={24} /> ARCADE<span className="mobile-hide">.STUDIO</span>
           </a>
 
           {pageTitle && (
@@ -207,17 +207,17 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
                   <a 
                     href="/admin.html"
                     className="neo-btn secondary"
-                    style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem", textDecoration: "none" }}
+                    style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.2rem" }}
                   >
-                    <ShieldAlert size={14} /> ADMIN
+                    <ShieldAlert size={14} /> <span className="mobile-hide">ADMIN</span>
                   </a>
                 )}
                 <button 
                   onClick={handleLogout} 
                   className="neo-btn" 
-                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }}
+                  style={{ padding: "0.4rem 0.6rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.2rem" }}
                 >
-                  <LogOut size={14} /> LOGOUT
+                  <LogOut size={14} /> <span className="mobile-hide">LOGOUT</span>
                 </button>
               </>
             ) : (
