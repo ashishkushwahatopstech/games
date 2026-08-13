@@ -1,0 +1,17 @@
+name = "play-backend"
+main = "src/index.ts"
+compatibility_date = "2023-10-30"
+
+[vars]
+GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+ADMIN_EMAIL = "ashishkushwaha88643@gmail.com"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "PLAY_KV_ID_PLACEHOLDER"
+preview_id = "PLAY_KV_PREVIEW_ID_PLACEHOLDER"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "play-db"
+database_id = "PLAY_D1_ID_PLACEHOLDER"
