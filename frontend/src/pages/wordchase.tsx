@@ -4,6 +4,8 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import WordChase from '../games/WordChase'
 
+import GameGuide from '../components/GameGuide'
+
 function WordChasePage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function WordChasePage() {
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
+      <GameGuide gameId="word-chase" />
     </PageLayout>
   )
 }

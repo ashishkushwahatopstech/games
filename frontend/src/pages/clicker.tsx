@@ -4,6 +4,8 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import CyberClicker from '../games/CyberClicker'
 
+import GameGuide from '../components/GameGuide'
+
 function ClickerPage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function ClickerPage() {
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
+      <GameGuide gameId="cyber-clicker" />
     </PageLayout>
   )
 }

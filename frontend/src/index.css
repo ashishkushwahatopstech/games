@@ -304,3 +304,12 @@ canvas {
   }
 }
 
+/* Responsive game layouts: stack columns on mobile */
+@media (max-width: 768px) {
+  .game-layout-container {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+}
+
+

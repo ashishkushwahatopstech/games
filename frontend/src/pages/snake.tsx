@@ -4,6 +4,8 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import RetroSnake from '../games/RetroSnake'
 
+import GameGuide from '../components/GameGuide'
+
 function SnakePage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function SnakePage() {
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
+      <GameGuide gameId="retro-snake" />
     </PageLayout>
   )
 }

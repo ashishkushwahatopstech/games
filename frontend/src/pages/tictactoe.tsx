@@ -4,11 +4,12 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import TicTacToeArena from '../games/TicTacToeArena'
 
+import GameGuide from '../components/GameGuide'
+
 function TicTacToePage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
     ? "http://127.0.0.1:8787" 
@@ -42,28 +43,11 @@ function TicTacToePage() {
         user={user} 
         backendUrl={backendUrl}
         token={token}
-        triggerLogin={() => setShowLoginModal(true)}
+        triggerLogin={() => window.dispatchEvent(new CustomEvent("trigger-login-modal"))}
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
-
-      {showLoginModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <h3 style={{ fontSize: "1.4rem", fontWeight: "800" }}>Sign In to Profile</h3>
-            <p style={{ color: "#666", fontWeight: "600", fontSize: "0.9rem" }}>
-              Please sign in using the header buttons at the top right to start playing.
-            </p>
-            <button 
-              onClick={() => setShowLoginModal(false)} 
-              className="neo-btn" 
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              CLOSE
-            </button>
-          </div>
-        </div>
-      )}
+      <GameGuide gameId="tic-tac-toe-online" />
     </PageLayout>
   )
 }

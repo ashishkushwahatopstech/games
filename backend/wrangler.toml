@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2023-10-30"
 
 [vars]
-GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "73332236335-uh69lkbkeclfkbrj5bk405ru5ou96c8n.apps.googleusercontent.com"
 ADMIN_EMAIL = "ashishkushwaha88643@gmail.com"
 
 [[kv_namespaces]]

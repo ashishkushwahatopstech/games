@@ -80,6 +80,12 @@ export default function App() {
     const selected = games.find(g => g.id === gameId);
     if (!selected) return;
 
+    const savedUser = localStorage.getItem("arcade_user");
+    if (!savedUser) {
+      window.dispatchEvent(new CustomEvent("trigger-login-modal"));
+      return;
+    }
+
     if (isMobile && !selected.is_mobile_friendly) {
       setPendingGameUrl(selected.url);
       setShowMobileOverlay(true);

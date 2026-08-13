@@ -4,6 +4,8 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import Stacker from '../games/Stacker'
 
+import GameGuide from '../components/GameGuide'
+
 function StackerPage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function StackerPage() {
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
+      <GameGuide gameId="stacker" />
     </PageLayout>
   )
 }

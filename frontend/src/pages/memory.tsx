@@ -4,6 +4,8 @@ import '../index.css'
 import PageLayout from '../components/PageLayout'
 import MemoryMatrix from '../games/MemoryMatrix'
 
+import GameGuide from '../components/GameGuide'
+
 function MemoryPage() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -59,6 +61,7 @@ function MemoryPage() {
         leaderboard={leaderboard} 
         refreshLeaderboard={refreshLeaderboard} 
       />
+      <GameGuide gameId="memory" />
     </PageLayout>
   )
 }
