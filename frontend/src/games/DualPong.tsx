@@ -150,177 +150,214 @@ export default function DualPong({ onBack }: DualPongProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set pixel-art rendering for crispy scaling
     ctx.imageSmoothingEnabled = false;
 
     let animationFrameId: number;
-    const pSpeed = 6;
 
+    // Ball physics variables
     let ballX = canvas.width / 2;
     let ballY = canvas.height / 2;
-    let ballRadius = 7;
-    let ballSpeedX = 2.5 * (Math.random() > 0.5 ? 1 : -1);
-    let ballSpeedY = 2.5 * (Math.random() > 0.5 ? 1 : -1);
+    let ballVX = 2.5 * (Math.random() > 0.5 ? 1 : -1);
+    let ballVY = 3 * (Math.random() > 0.5 ? 1 : -1);
+    const ballRadius = 7;
 
-    const resetBall = (direction: number) => {
+    const resetBall = (direction: 1 | -1) => {
       ballX = canvas.width / 2;
       ballY = canvas.height / 2;
-      ballSpeedX = (2.5 + levelRef.current * 0.2) * (Math.random() > 0.5 ? 1 : -1);
-      ballSpeedY = (2.5 + levelRef.current * 0.2) * direction;
+      const speedMultiplier = gameModeRef.current === "bricks" ? 2 + levelRef.current * 0.3 : 3;
+      ballVX = 2 * (Math.random() > 0.5 ? 1 : -1);
+      ballVY = speedMultiplier * direction;
     };
 
-    const updateGame = () => {
+    const update = () => {
       if (gameState !== "playing") return;
 
       if (isPausedRef.current) {
-        ctx.fillStyle = "rgba(18, 18, 18, 0.02)";
+        ctx.fillStyle = "rgba(18,18,18,0.05)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         ctx.fillStyle = "#121212";
         ctx.font = "bold 24px var(--font-ui)";
         ctx.textAlign = "center";
         ctx.fillText("|| PAUSED", canvas.width / 2, canvas.height / 2);
-        animationFrameId = requestAnimationFrame(updateGame);
+        animationFrameId = requestAnimationFrame(update);
         return;
       }
 
-      // Move player paddle (bottom) with buttons or keys
-      if (keysPressed.current["ArrowLeft"] || keysPressed.current["KeyA"]) {
-        p2XRef.current = Math.max(0, p2XRef.current - pSpeed);
-      }
-      if (keysPressed.current["ArrowRight"] || keysPressed.current["KeyD"]) {
-        p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + pSpeed);
-      }
+      // Draw background
+      ctx.fillStyle = "#faf6f0";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Move top opponent paddle (if in Duel mode)
+      // Dash center line (only in Duel mode)
       if (gameModeRef.current === "duel") {
-        if (keysPressed.current["KeyJ"]) {
-          p1XRef.current = Math.max(0, p1XRef.current - pSpeed);
-        }
-        if (keysPressed.current["KeyL"]) {
-          p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + pSpeed);
-        }
+        ctx.strokeStyle = "rgba(18,18,18,0.15)";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
-      // Move Ball
-      ballX += ballSpeedX;
-      ballY += ballSpeedY;
-
-      // Side Wall Bouncing
-      if (ballX - ballRadius <= 0) {
-        ballX = ballRadius;
-        ballSpeedX = -ballSpeedX;
-        playSound("hit");
+      // Keyboard input movements
+      const speed = 5;
+      if (gameModeRef.current === "duel") {
+        if (keysPressed.current["KeyA"]) p1XRef.current = Math.max(0, p1XRef.current - speed);
+        if (keysPressed.current["KeyD"]) p1XRef.current = Math.min(canvas.width - paddleWidth, p1XRef.current + speed);
       }
-      if (ballX + ballRadius >= canvas.width) {
-        ballX = canvas.width - ballRadius;
-        ballSpeedX = -ballSpeedX;
-        playSound("hit");
+      if (keysPressed.current["ArrowLeft"]) p2XRef.current = Math.max(0, p2XRef.current - speed);
+      if (keysPressed.current["ArrowRight"]) p2XRef.current = Math.min(canvas.width - paddleWidth, p2XRef.current + speed);
+
+      // Draw paddles
+      ctx.fillStyle = "#121212";
+      if (gameModeRef.current === "duel") {
+        ctx.fillRect(p1XRef.current + 3, 15 + 3, paddleWidth, paddleHeight); // Top (Red) shadows
+      }
+      ctx.fillRect(p2XRef.current + 3, canvas.height - 15 - paddleHeight + 3, paddleWidth, paddleHeight); // Bottom (Blue) shadows
+
+      // Top Paddle (Red)
+      if (gameModeRef.current === "duel") {
+        ctx.fillStyle = "var(--accent-color)";
+        ctx.strokeStyle = "#121212";
+        ctx.lineWidth = 3;
+        ctx.fillRect(p1XRef.current, 15, paddleWidth, paddleHeight);
+        ctx.strokeRect(p1XRef.current, 15, paddleWidth, paddleHeight);
       }
 
-      // Mode-specific bounce rules
+      // Bottom Paddle (Blue)
+      ctx.fillStyle = "var(--blue-accent)";
+      ctx.strokeStyle = "#121212";
+      ctx.lineWidth = 3;
+      ctx.fillRect(p2XRef.current, canvas.height - 15 - paddleHeight, paddleWidth, paddleHeight);
+      ctx.strokeRect(p2XRef.current, canvas.height - 15 - paddleHeight, paddleWidth, paddleHeight);
+
+      // Draw bricks (if Bricks Mode)
       if (gameModeRef.current === "bricks") {
-        // Bounce off top wall in Single Player
-        if (ballY - ballRadius <= 0) {
-          ballY = ballRadius;
-          ballSpeedY = -ballSpeedY;
-          playSound("hit");
+        let activeCount = 0;
+        bricksRef.current.forEach(brick => {
+          if (!brick.active) return;
+          activeCount++;
+          // Draw shadow
+          ctx.fillStyle = "#121212";
+          ctx.fillRect(brick.x + 3, brick.y + 3, brick.width, brick.height);
+
+          // Draw brick
+          ctx.fillStyle = brick.color;
+          ctx.strokeStyle = "#121212";
+          ctx.lineWidth = 2.5;
+          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+          ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+        });
+
+        // Level Clear condition
+        if (activeCount === 0) {
+          playSound("level");
+          levelRef.current += 1;
+          setScore1(levelRef.current);
+          generateBricks(levelRef.current);
+          resetBall(1);
         }
+      }
 
-        // Brick collision checks
+      // Ball movement
+      ballX += ballVX;
+      ballY += ballVY;
+
+      // Ball wall bounces
+      if (ballX - ballRadius < 0) {
+        ballX = ballRadius;
+        ballVX = -ballVX;
+        playSound("hit");
+      }
+      if (ballX + ballRadius > canvas.width) {
+        ballX = canvas.width - ballRadius;
+        ballVX = -ballVX;
+        playSound("hit");
+      }
+
+      // Bricks collisions (Bricks Mode only)
+      if (gameModeRef.current === "bricks") {
         for (let i = 0; i < bricksRef.current.length; i++) {
-          const brick = bricksRef.current[i];
-          if (!brick.active) continue;
+          const b = bricksRef.current[i];
+          if (!b.active) continue;
 
-          if (
-            ballX + ballRadius >= brick.x &&
-            ballX - ballRadius <= brick.x + brick.width &&
-            ballY + ballRadius >= brick.y &&
-            ballY - ballRadius <= brick.y + brick.height
-          ) {
-            brick.active = false;
-            ballSpeedY = -ballSpeedY;
+          // Simple AABB vs Circle
+          const closestX = Math.max(b.x, Math.min(ballX, b.x + b.width));
+          const closestY = Math.max(b.y, Math.min(ballY, b.y + b.height));
+          const distX = ballX - closestX;
+          const distY = ballY - closestY;
+          const distance = distX * distX + distY * distY;
+
+          if (distance < ballRadius * ballRadius) {
+            b.active = false;
             playSound("hit");
-
-            // Increase score
-            setScore2(s => {
-              const next = s + 10;
-              return next;
-            });
-
-            // Check if level clear
-            const anyActive = bricksRef.current.some(b => b.active);
-            if (!anyActive) {
-              playSound("level");
-              levelRef.current += 1;
-              setScore1(levelRef.current);
-              resetBall(1);
-              generateBricks(levelRef.current);
+            setScore2(s => s + 10);
+            
+            // Deflect ball
+            if (Math.abs(distX) > Math.abs(distY)) {
+              ballVX = -ballVX;
+            } else {
+              ballVY = -ballVY;
             }
             break;
           }
         }
-      } else {
-        // Duel mode collision with top paddle (Player 1)
-        if (
-          ballY - ballRadius <= 20 &&
-          ballY - ballRadius >= 20 - paddleHeight &&
-          ballX >= p1XRef.current &&
-          ballX <= p1XRef.current + paddleWidth
-        ) {
-          ballSpeedY = -ballSpeedY;
-          ballSpeedX *= 1.05;
-          ballSpeedY *= 1.05;
+
+        // Top wall ceiling deflection (Bricks Mode only)
+        if (ballY - ballRadius < 0) {
+          ballY = ballRadius;
+          ballVY = -ballVY;
           playSound("hit");
         }
       }
 
-      // Bottom Paddle Collision (Player 2)
-      if (
-        ballY + ballRadius >= canvas.height - 20 - paddleHeight &&
-        ballY + ballRadius <= canvas.height - 20 &&
-        ballX >= p2XRef.current &&
-        ballX <= p2XRef.current + paddleWidth
-      ) {
-        ballSpeedY = -ballSpeedY;
-        ballSpeedX *= 1.04;
-        ballSpeedY *= 1.04;
-        playSound("hit");
-      }
-
-      // Scoring & Life boundaries
-      if (gameModeRef.current === "bricks") {
-        if (ballY + ballRadius > canvas.height) {
-          playSound("crash");
-          livesRef.current -= 1;
-          setLives(livesRef.current);
-          if (livesRef.current <= 0) {
-            setWinner(`PLAYER`);
-            setGameState("gameover");
-          } else {
-            resetBall(-1);
+      // Paddle collisions
+      // Top Paddle (Red) in Duel Mode
+      if (gameModeRef.current === "duel") {
+        if (ballY - ballRadius < 15 + paddleHeight && ballY + ballRadius > 15) {
+          if (ballX >= p1XRef.current && ballX <= p1XRef.current + paddleWidth) {
+            ballVY = Math.abs(ballVY);
+            // Angle shift based on impact location
+            const impact = (ballX - (p1XRef.current + paddleWidth / 2)) / (paddleWidth / 2);
+            ballVX = impact * 4;
+            playSound("hit");
           }
         }
-      } else {
-        // Duel scoring check
-        if (ballY - ballRadius < 0) {
+      }
+
+      // Bottom Paddle (Blue)
+      const bPaddleY = canvas.height - 15 - paddleHeight;
+      if (ballY + ballRadius > bPaddleY && ballY - ballRadius < bPaddleY + paddleHeight) {
+        if (ballX >= p2XRef.current && ballX <= p2XRef.current + paddleWidth) {
+          ballVY = -Math.abs(ballVY);
+          // Angle shift
+          const impact = (ballX - (p2XRef.current + paddleWidth / 2)) / (paddleWidth / 2);
+          ballVX = impact * 4;
+          playSound("hit");
+        }
+      }
+
+      // Scored / Life lost checks
+      if (gameModeRef.current === "duel") {
+        if (ballY < 0) {
           playSound("score");
           setScore2(s => {
             const next = s + 1;
-            if (next >= 5) {
-              setWinner("PLAYER 2 (BOTTOM)");
+            if (next >= 10) {
+              setWinner("BLUE");
               setGameState("gameover");
             } else {
               resetBall(1);
             }
             return next;
           });
-        } else if (ballY + ballRadius > canvas.height) {
+        } else if (ballY > canvas.height) {
           playSound("score");
           setScore1(s => {
             const next = s + 1;
-            if (next >= 5) {
-              setWinner("PLAYER 1 (TOP)");
+            if (next >= 10) {
+              setWinner("RED");
               setGameState("gameover");
             } else {
               resetBall(-1);
@@ -328,98 +365,54 @@ export default function DualPong({ onBack }: DualPongProps) {
             return next;
           });
         }
-      }
-
-      // Draw everything
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#faf6f0";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Dash dividing line in duel mode
-      if (gameModeRef.current === "duel") {
-        ctx.strokeStyle = "rgba(18,18,18,0.15)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height / 2);
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Top Paddle (Red)
-        ctx.fillStyle = "var(--accent-color)";
-        ctx.fillRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
-        ctx.strokeStyle = "#121212";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
       } else {
-        // Draw Bricks in Single Player mode
-        bricksRef.current.forEach(brick => {
-          if (!brick.active) return;
-          ctx.fillStyle = brick.color;
-          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-          ctx.strokeStyle = "#121212";
-          ctx.lineWidth = 2.5;
-          ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
-        });
+        // Bricks Mode drop
+        if (ballY > canvas.height) {
+          playSound("crash");
+          livesRef.current -= 1;
+          setLives(livesRef.current);
+          if (livesRef.current <= 0) {
+            setGameState("gameover");
+          } else {
+            resetBall(-1);
+          }
+        }
       }
 
-      // Bottom Paddle (Blue)
-      ctx.fillStyle = "var(--blue-accent)";
-      ctx.fillRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
-      ctx.strokeStyle = "#121212";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
+      // Draw Ball shadow
+      ctx.fillStyle = "#121212";
+      ctx.beginPath();
+      ctx.arc(ballX + 2, ballY + 2, ballRadius, 0, Math.PI * 2);
+      ctx.fill();
 
-      // Ball
+      // Draw Ball
+      ctx.fillStyle = "#ffd166";
+      ctx.strokeStyle = "#121212";
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "var(--secondary-color)";
       ctx.fill();
-      ctx.strokeStyle = "#121212";
-      ctx.lineWidth = 3;
       ctx.stroke();
 
-      animationFrameId = requestAnimationFrame(updateGame);
+      if (gameState === "playing") {
+        animationFrameId = requestAnimationFrame(update);
+      }
     };
 
     if (gameState === "playing") {
-      animationFrameId = requestAnimationFrame(updateGame);
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#faf6f0";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (gameModeRef.current === "duel") {
-        ctx.fillStyle = "var(--accent-color)";
-        ctx.fillRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
-        ctx.strokeStyle = "#121212";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(p1XRef.current, 20 - paddleHeight, paddleWidth, paddleHeight);
-      } else {
-        generateBricks(levelRef.current);
-        bricksRef.current.forEach(b => {
-          ctx.fillStyle = b.color;
-          ctx.fillRect(b.x, b.y, b.width, b.height);
-          ctx.strokeStyle = "#121212";
-          ctx.strokeRect(b.x, b.y, b.width, b.height);
-        });
-      }
-      ctx.fillStyle = "var(--blue-accent)";
-      ctx.fillRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
-      ctx.strokeStyle = "#121212";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(p2XRef.current, canvas.height - 20, paddleWidth, paddleHeight);
+      animationFrameId = requestAnimationFrame(update);
     }
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [gameState, gameMode, isPaused]);
+  }, [gameState, isPaused]);
 
   const startGame = () => {
+    localStorage.setItem("arcade_has_played", "true");
+    setIsPaused(false);
+    isPausedRef.current = false;
     setWinner(null);
     p1XRef.current = 130;
     p2XRef.current = 130;
-    setIsPaused(false);
-    isPausedRef.current = false;
 
     if (gameMode === "bricks") {
       setScore1(1); // Level 1
@@ -530,91 +523,6 @@ export default function DualPong({ onBack }: DualPongProps) {
             style={{ display: "block", width: "100%", height: "100%", outline: "none", WebkitTapHighlightColor: "transparent" }}
           />
 
-          {/* Interactive Drag Sliders (Joysticks) */}
-          {gameState === "playing" && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none" }}>
-              
-              {/* Top Drag Joystick (Only in 2P Duel Mode) */}
-              {gameMode === "duel" ? (
-                <div 
-                  onTouchMove={handleTopSliderMove}
-                  onTouchStart={handleTopSliderMove}
-                  onMouseMove={(e) => e.buttons === 1 && handleTopSliderMove(e)}
-                  onMouseDown={handleTopSliderMove}
-                  style={{ 
-                    pointerEvents: isPaused ? "none" : "auto", 
-                    width: "100%", 
-                    height: "75px", 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    justifyContent: "center", 
-                    alignItems: "center", 
-                    background: "rgba(255, 107, 107, 0.05)", 
-                    borderBottom: "3px dashed #121212",
-                    cursor: "ew-resize"
-                  }}
-                >
-                  <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
-                    <div 
-                      style={{ 
-                        position: "absolute", 
-                        left: `${(p1XRef.current / 260) * 100}%`, 
-                        top: "-12px", 
-                        width: "30px", 
-                        height: "30px", 
-                        background: "var(--accent-color)", 
-                        border: "2px solid #121212", 
-                        borderRadius: "50%",
-                        transform: "translateX(-50%)"
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: "0.65rem", fontWeight: "800", color: "#666", marginTop: "4px", transform: "rotate(180deg)" }}>DRAG TO SLIDE</span>
-                </div>
-              ) : (
-                <div style={{ height: "75px" }} /> // Empty spacer when top controls are disabled
-              )}
-
-              {/* Bottom Drag Joystick */}
-              <div 
-                onTouchMove={handleBottomSliderMove}
-                onTouchStart={handleBottomSliderMove}
-                onMouseMove={(e) => e.buttons === 1 && handleBottomSliderMove(e)}
-                onMouseDown={handleBottomSliderMove}
-                style={{ 
-                  pointerEvents: isPaused ? "none" : "auto", 
-                  width: "100%", 
-                  height: "75px", 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  justifyContent: "center", 
-                  alignItems: "center", 
-                  background: "rgba(76, 201, 240, 0.05)", 
-                  borderTop: "3px dashed #121212",
-                  cursor: "ew-resize"
-                }}
-              >
-                <span style={{ fontSize: "0.65rem", fontWeight: "800", color: "#666", marginBottom: "4px" }}>DRAG TO SLIDE</span>
-                <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
-                  <div 
-                    style={{ 
-                      position: "absolute", 
-                      left: `${(p2XRef.current / 260) * 100}%`, 
-                      top: "-12px", 
-                      width: "30px", 
-                      height: "30px", 
-                      background: "var(--blue-accent)", 
-                      border: "2px solid #121212", 
-                      borderRadius: "50%",
-                      transform: "translateX(-50%)"
-                    }}
-                  />
-                </div>
-              </div>
-
-            </div>
-          )}
-
           {gameState === "idle" && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", backgroundColor: "rgba(250, 246, 240, 0.95)", gap: "1rem" }}>
               <h3 style={{ fontFamily: "var(--font-game)", fontSize: "0.85rem", textAlign: "center" }}>
@@ -622,7 +530,7 @@ export default function DualPong({ onBack }: DualPongProps) {
               </h3>
               <p style={{ fontWeight: "600", fontSize: "0.8rem", textAlign: "center", maxWidth: "250px" }}>
                 {gameMode === "duel" 
-                  ? "Local 1v1 split screen game! Move paddles using sliders or keys." 
+                  ? "Local 1v1 split screen game! Move paddles using sliders below or keyboard keys." 
                   : "Break all bricks at the top! Avoid letting the ball drop below."}
               </p>
               <button onClick={startGame} className="neo-btn accent">START GAME</button>
@@ -641,6 +549,102 @@ export default function DualPong({ onBack }: DualPongProps) {
             </div>
           )}
         </div>
+
+        {/* Joystick Controllers rendered completely below the game screen card */}
+        {gameState === "playing" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", width: "100%", maxWidth: "340px", marginTop: "1.2rem" }}>
+            
+            {/* Top Player Drag Joystick (Only in 2P Duel Mode) */}
+            {gameMode === "duel" && (
+              <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "800", marginBottom: "4px" }}>
+                  <span>RED PLAYER (TOP CONTROLLER)</span>
+                  <span>[ A / D ]</span>
+                </div>
+                <div 
+                  onTouchMove={handleTopSliderMove}
+                  onTouchStart={handleTopSliderMove}
+                  onMouseMove={(e) => e.buttons === 1 && handleTopSliderMove(e)}
+                  onMouseDown={handleTopSliderMove}
+                  style={{ 
+                    pointerEvents: isPaused ? "none" : "auto", 
+                    width: "100%", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    background: "rgba(255, 107, 107, 0.05)", 
+                    padding: "0.8rem 0",
+                    border: "2px dashed #121212",
+                    borderRadius: "6px",
+                    cursor: "ew-resize",
+                    touchAction: "none"
+                  }}
+                >
+                  <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
+                    <div 
+                      style={{ 
+                        position: "absolute", 
+                        left: `${(p1XRef.current / 260) * 100}%`, 
+                        top: "-12px", 
+                        width: "30px", 
+                        height: "30px", 
+                        background: "var(--accent-color)", 
+                        border: "2px solid #121212", 
+                        borderRadius: "50%",
+                        transform: "translateX(-50%)"
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Player Drag Joystick */}
+            <div className="neo-card" style={{ padding: "0.6rem", border: "3px solid #121212", backgroundColor: "#fff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "800", marginBottom: "4px" }}>
+                <span>BLUE PLAYER (BOTTOM CONTROLLER)</span>
+                <span>[ ◀ / ▶ ]</span>
+              </div>
+              <div 
+                onTouchMove={handleBottomSliderMove}
+                onTouchStart={handleBottomSliderMove}
+                onMouseMove={(e) => e.buttons === 1 && handleBottomSliderMove(e)}
+                onMouseDown={handleBottomSliderMove}
+                style={{ 
+                  pointerEvents: isPaused ? "none" : "auto", 
+                  width: "100%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  background: "rgba(76, 201, 240, 0.05)", 
+                  padding: "0.8rem 0",
+                  border: "2px dashed #121212",
+                  borderRadius: "6px",
+                  cursor: "ew-resize",
+                  touchAction: "none"
+                }}
+              >
+                <div style={{ width: "90%", height: "8px", background: "#e2dcd0", border: "2px solid #121212", borderRadius: "4px", position: "relative" }}>
+                  <div 
+                    style={{ 
+                      position: "absolute", 
+                      left: `${(p2XRef.current / 260) * 100}%`, 
+                      top: "-12px", 
+                      width: "30px", 
+                      height: "30px", 
+                      background: "var(--blue-accent)", 
+                      border: "2px solid #121212", 
+                      borderRadius: "50%",
+                      transform: "translateX(-50%)"
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
       </div>
     </div>
   );
