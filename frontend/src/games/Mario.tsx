@@ -115,21 +115,33 @@ export default function Mario({
 
     try {
       await loadPeerJS();
-      const peer = new (window as any).Peer(`arcade-mario-${code}`);
+      const peer = new (window as any).Peer(`arcade-mario-${code}`, {
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" }
+          ]
+        }
+      });
 
       peer.on("open", () => {
         setPairingStatus("Waiting for phone to connect...");
       });
 
       peer.on("connection", (conn: any) => {
-        setPeerConnected(true);
-        setPairingStatus("Phone connected! Ready to play.");
-        setConnInstance(conn);
+        setPairingStatus("Handshake in progress...");
+        
+        conn.on("open", () => {
+          setPeerConnected(true);
+          setPairingStatus("Phone connected! Ready to play.");
+          setConnInstance(conn);
 
-        // Automatically close modal after pairing
-        setTimeout(() => {
-          setShowPairingModal(false);
-        }, 1500);
+          // Automatically close modal after pairing
+          setTimeout(() => {
+            setShowPairingModal(false);
+          }, 1500);
+        });
 
         conn.on("data", (data: any) => {
           // Route inputs straight to the emulator iframe
@@ -141,6 +153,11 @@ export default function Mario({
         conn.on("close", () => {
           setPeerConnected(false);
           setPairingStatus("Phone disconnected.");
+        });
+
+        conn.on("error", () => {
+          setPeerConnected(false);
+          setPairingStatus("Connection error.");
         });
       });
 
@@ -158,15 +175,24 @@ export default function Mario({
     setPairingStatus("Connecting to screen...");
     try {
       await loadPeerJS();
-      const peer = new (window as any).Peer();
+      const peer = new (window as any).Peer({
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" }
+          ]
+        }
+      });
 
       peer.on("open", () => {
-        const conn = peer.connect(`arcade-mario-${code}`);
+        setPairingStatus("Searching for screen...");
+        const conn = peer.connect(`arcade-mario-${code}`, { reliable: true });
         setConnInstance(conn);
 
         conn.on("open", () => {
           setPeerConnected(true);
-          setPairingStatus("Connected! Tilt phone & play.");
+          setPairingStatus("Connected! Use buttons below to play.");
         });
 
         conn.on("close", () => {
