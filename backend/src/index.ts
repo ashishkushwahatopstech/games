@@ -580,31 +580,53 @@ export default {
       if (path === "/api/signal/offer" && request.method === "POST") {
         const { code, sdp } = await request.json() as any;
         if (!code || !sdp) return errorResponse("Missing code or sdp data");
-        await env.KV.put(`arcade:offer:${code}`, JSON.stringify(sdp), { expirationTtl: 300 });
+        
+        // Cleanup signals older than 10 minutes
+        await env.DB.prepare("DELETE FROM webrtc_signals WHERE created_at < datetime('now', '-10 minutes')").run();
+        
+        // Insert new signaling record
+        await env.DB.prepare(
+          "INSERT OR REPLACE INTO webrtc_signals (code, offer, answer, created_at) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)"
+        )
+          .bind(code, JSON.stringify(sdp))
+          .run();
+
         return jsonResponse({ success: true });
       }
 
       if (path === "/api/signal/offer" && request.method === "GET") {
         const code = url.searchParams.get("code");
         if (!code) return errorResponse("Missing pairing code");
-        const sdpStr = await env.KV.get(`arcade:offer:${code}`);
-        if (!sdpStr) return errorResponse("Offer not found", 404);
-        return jsonResponse({ sdp: JSON.parse(sdpStr) });
+        
+        const row = await env.DB.prepare("SELECT offer FROM webrtc_signals WHERE code = ?")
+          .bind(code)
+          .first() as any;
+          
+        if (!row || !row.offer) return errorResponse("Offer not found", 404);
+        return jsonResponse({ sdp: JSON.parse(row.offer) });
       }
 
       if (path === "/api/signal/answer" && request.method === "POST") {
         const { code, sdp } = await request.json() as any;
         if (!code || !sdp) return errorResponse("Missing code or sdp data");
-        await env.KV.put(`arcade:answer:${code}`, JSON.stringify(sdp), { expirationTtl: 300 });
+        
+        await env.DB.prepare("UPDATE webrtc_signals SET answer = ? WHERE code = ?")
+          .bind(JSON.stringify(sdp), code)
+          .run();
+
         return jsonResponse({ success: true });
       }
 
       if (path === "/api/signal/answer" && request.method === "GET") {
         const code = url.searchParams.get("code");
         if (!code) return errorResponse("Missing pairing code");
-        const sdpStr = await env.KV.get(`arcade:answer:${code}`);
-        if (!sdpStr) return errorResponse("Answer not found", 404);
-        return jsonResponse({ sdp: JSON.parse(sdpStr) });
+        
+        const row = await env.DB.prepare("SELECT answer FROM webrtc_signals WHERE code = ?")
+          .bind(code)
+          .first() as any;
+          
+        if (!row || !row.answer) return errorResponse("Answer not found", 404);
+        return jsonResponse({ sdp: JSON.parse(row.answer) });
       }
 
       // ----------------------------------------------------

@@ -240,7 +240,7 @@ export default function Mario({
           }
         } else {
           checkCount++;
-          if (checkCount > 180) { // Timeout after 3 minutes
+          if (checkCount > 450) { // Timeout after 3 minutes (450 * 400ms)
             setPairingStatus("Pairing timed out. Try again.");
             clearInterval(pollIntervalRef.current);
           }
@@ -249,7 +249,7 @@ export default function Mario({
         // Ignore and retry
       }
     };
-    pollIntervalRef.current = setInterval(poll, 1500);
+    pollIntervalRef.current = setInterval(poll, 400);
   };
 
   // Phone side: connect to desktop host peer
@@ -272,7 +272,7 @@ export default function Mario({
             setupWebRTCClient(code, offerData);
           } else {
             checkCount++;
-            if (checkCount > 60) { // Poll for up to 90 seconds
+            if (checkCount > 225) { // Poll for up to 90 seconds (225 * 400ms)
               setPairingStatus("Pairing code not found. Retrying...");
               clearInterval(pollIntervalRef.current);
             }
@@ -282,7 +282,7 @@ export default function Mario({
         }
       };
 
-      pollIntervalRef.current = setInterval(pollOffer, 1500);
+      pollIntervalRef.current = setInterval(pollOffer, 400);
       pollOffer(); // Run immediately
     } catch (e) {
       setPairingStatus("Failed to connect.");
