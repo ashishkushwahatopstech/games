@@ -575,6 +575,39 @@ export default {
       }
 
       // ----------------------------------------------------
+      // P2P WebRTC Signaling API
+      // ----------------------------------------------------
+      if (path === "/api/signal/offer" && request.method === "POST") {
+        const { code, sdp } = await request.json() as any;
+        if (!code || !sdp) return errorResponse("Missing code or sdp data");
+        await env.KV.put(`arcade:offer:${code}`, JSON.stringify(sdp), { expirationTtl: 300 });
+        return jsonResponse({ success: true });
+      }
+
+      if (path === "/api/signal/offer" && request.method === "GET") {
+        const code = url.searchParams.get("code");
+        if (!code) return errorResponse("Missing pairing code");
+        const sdpStr = await env.KV.get(`arcade:offer:${code}`);
+        if (!sdpStr) return errorResponse("Offer not found", 404);
+        return jsonResponse({ sdp: JSON.parse(sdpStr) });
+      }
+
+      if (path === "/api/signal/answer" && request.method === "POST") {
+        const { code, sdp } = await request.json() as any;
+        if (!code || !sdp) return errorResponse("Missing code or sdp data");
+        await env.KV.put(`arcade:answer:${code}`, JSON.stringify(sdp), { expirationTtl: 300 });
+        return jsonResponse({ success: true });
+      }
+
+      if (path === "/api/signal/answer" && request.method === "GET") {
+        const code = url.searchParams.get("code");
+        if (!code) return errorResponse("Missing pairing code");
+        const sdpStr = await env.KV.get(`arcade:answer:${code}`);
+        if (!sdpStr) return errorResponse("Answer not found", 404);
+        return jsonResponse({ sdp: JSON.parse(sdpStr) });
+      }
+
+      // ----------------------------------------------------
       // Admin APIs (restricted to admin email)
       // ----------------------------------------------------
       if (path.startsWith("/api/admin/")) {

@@ -20,20 +20,6 @@ const NES_BUTTON_DOWN = 5;
 const NES_BUTTON_LEFT = 6;
 const NES_BUTTON_RIGHT = 7;
 
-// Utility to load PeerJS script dynamically
-const loadPeerJS = (): Promise<void> => {
-  return new Promise((resolve) => {
-    if ((window as any).Peer) {
-      resolve();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
-    script.onload = () => resolve();
-    document.body.appendChild(script);
-  });
-};
-
 export default function Mario({
   onBack,
   user,
@@ -43,17 +29,7 @@ export default function Mario({
 }: MarioProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const peerRef = useRef<any>(null);
   const [muted, setMuted] = useState(false);
-
-  // Clean up connections on unmount
-  useEffect(() => {
-    return () => {
-      if (peerRef.current) {
-        try { peerRef.current.destroy(); } catch(e) {}
-      }
-    };
-  }, []);
 
   // Live game stats extracted from the NES emulator memory
   const [score, setScore] = useState(0);
@@ -62,14 +38,21 @@ export default function Mario({
   const [level, setLevel] = useState(1);
   const [lives, setLives] = useState(3);
 
-  // PeerJS Connection State
+  // Native WebRTC Connection State References
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const dcRef = useRef<RTCDataChannel | null>(null);
+  const pollIntervalRef = useRef<any>(null);
+
   const [isControllerMode, setIsControllerMode] = useState(false);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [peerConnected, setPeerConnected] = useState(false);
-  const [connInstance, setConnInstance] = useState<any>(null);
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [pairingStatus, setPairingStatus] = useState("Initializing connection...");
   const [phoneCodeInput, setPhoneCodeInput] = useState("");
+
+  const backendUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+    ? "http://127.0.0.1:8787" 
+    : "https://play-backend.flowmaticai.workers.dev";
 
   // Check URL params on mount to verify if phone controller mode is requested
   useEffect(() => {
@@ -116,138 +99,234 @@ export default function Mario({
     return () => window.removeEventListener("message", handleMessage);
   }, [submitScore, refreshLeaderboard]);
 
+  // Clean up connections on unmount
+  useEffect(() => {
+    return () => {
+      cleanWebRTC();
+    };
+  }, []);
+
+  // Reset WebRTC state and connections helper
+  const cleanWebRTC = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (dcRef.current) {
+      try { dcRef.current.close(); } catch (e) {}
+      dcRef.current = null;
+    }
+    if (pcRef.current) {
+      try { pcRef.current.close(); } catch (e) {}
+      pcRef.current = null;
+    }
+    setPeerConnected(false);
+  };
+
   // Desktop side: host peer connection
   const hostPhoneController = async () => {
-    if (peerRef.current) {
-      try { peerRef.current.destroy(); } catch (e) {}
-    }
-
+    cleanWebRTC();
     setShowPairingModal(true);
     setPairingStatus("Generating pairing code...");
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setPairingCode(code);
 
     try {
-      await loadPeerJS();
-      const peer = new (window as any).Peer(`arcade-mario-${code}`, {
-        debug: 3,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun2.l.google.com:19302" }
-          ]
-        }
+      setPairingStatus("Creating signaling session...");
+      
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" }
+        ]
       });
-      peerRef.current = peer;
+      pcRef.current = pc;
 
-      peer.on("open", () => {
-        setPairingStatus("Waiting for phone to connect...");
-      });
+      // Create P2P data channel
+      const dc = pc.createDataChannel("controller", { negotiated: false });
+      dcRef.current = dc;
 
-      peer.on("connection", (conn: any) => {
-        setPairingStatus("Handshake in progress...");
+      dc.onopen = () => {
+        setPeerConnected(true);
+        setPairingStatus("Phone connected! Ready to play.");
         
-        conn.on("open", () => {
-          setPeerConnected(true);
-          setPairingStatus("Phone connected! Ready to play.");
-          setConnInstance(conn);
+        // Automatically close modal after pairing
+        setTimeout(() => {
+          setShowPairingModal(false);
+        }, 1500);
+      };
 
-          // Automatically close modal after pairing
-          setTimeout(() => {
-            setShowPairingModal(false);
-          }, 1500);
-        });
+      dc.onclose = () => {
+        setPeerConnected(false);
+        setPairingStatus("Phone disconnected.");
+      };
 
-        conn.on("data", (data: any) => {
+      dc.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
           // Route inputs straight to the emulator iframe
           if (iframeRef.current && iframeRef.current.contentWindow) {
             iframeRef.current.contentWindow.postMessage(data, "*");
           }
-        });
+        } catch (err) {}
+      };
 
-        conn.on("close", () => {
-          setPeerConnected(false);
-          setPairingStatus("Phone disconnected.");
-        });
+      // Gather ICE candidates and post offer once complete (Non-Trickle ICE)
+      pc.onicecandidate = async (e) => {
+        if (e.candidate === null) {
+          try {
+            const res = await fetch(`${backendUrl}/api/signal/offer`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code, sdp: pc.localDescription })
+            });
+            if (res.ok) {
+              setPairingStatus("Pairing code registered. Scan to connect!");
+              startPollingAnswer(code);
+            } else {
+              setPairingStatus("Failed to register code on signaling server.");
+            }
+          } catch (err) {
+            setPairingStatus("Signaling backend connection error.");
+          }
+        }
+      };
 
-        conn.on("error", () => {
-          setPeerConnected(false);
-          setPairingStatus("Connection error.");
-        });
-      });
-
-      peer.on("error", (err: any) => {
-        console.error("PeerJS error: ", err);
-        setPairingStatus("Connection error. Please retry.");
-      });
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
     } catch (e) {
-      setPairingStatus("Failed to load connection server.");
+      setPairingStatus("Failed to initialize WebRTC host.");
     }
+  };
+
+  // Poll signaling server for answer SDP from the phone
+  const startPollingAnswer = (code: string) => {
+    let checkCount = 0;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/signal/answer?code=${code}`);
+        if (res.ok) {
+          const data = await res.json() as any;
+          clearInterval(pollIntervalRef.current);
+          if (pcRef.current) {
+            await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            setPairingStatus("Handshake complete! Connecting...");
+          }
+        } else {
+          checkCount++;
+          if (checkCount > 120) { // Timeout after 3 minutes
+            setPairingStatus("Pairing timed out. Try again.");
+            clearInterval(pollIntervalRef.current);
+          }
+        }
+      } catch (e) {
+        // Ignore and retry
+      }
+    };
+    pollIntervalRef.current = setInterval(poll, 1500);
   };
 
   // Phone side: connect to desktop host peer
   const initPhoneController = async (code: string) => {
-    if (peerRef.current) {
-      try { peerRef.current.destroy(); } catch (e) {}
-    }
-
     setPairingStatus("Connecting to screen...");
+    cleanWebRTC();
+
     try {
-      await loadPeerJS();
-      const peer = new (window as any).Peer({
-        debug: 3,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun2.l.google.com:19302" }
-          ]
+      let offerData = null;
+      let checkCount = 0;
+
+      // Poll signaling server for offer SDP from desktop
+      const pollOffer = async () => {
+        try {
+          const res = await fetch(`${backendUrl}/api/signal/offer?code=${code}`);
+          if (res.ok) {
+            const data = await res.json() as any;
+            offerData = data.sdp;
+            clearInterval(pollIntervalRef.current);
+            setupWebRTCClient(code, offerData);
+          } else {
+            checkCount++;
+            if (checkCount > 30) {
+              setPairingStatus("Pairing code not found or expired.");
+              clearInterval(pollIntervalRef.current);
+            }
+          }
+        } catch (e) {
+          // Retry
         }
-      });
-      peerRef.current = peer;
+      };
 
-      peer.on("open", () => {
-        setPairingStatus("Searching for screen...");
-        // Do NOT pass { reliable: true } as it freezes peer connections
-        const conn = peer.connect(`arcade-mario-${code}`);
-        setConnInstance(conn);
-
-        conn.on("open", () => {
-          setPeerConnected(true);
-          setPairingStatus("Connected! Use buttons below to play.");
-        });
-
-        conn.on("close", () => {
-          setPeerConnected(false);
-          setPairingStatus("Disconnected from screen.");
-        });
-
-        conn.on("error", (err: any) => {
-          console.error(err);
-          setPairingStatus("Failed to connect to screen.");
-        });
-      });
-
-      peer.on("error", (err: any) => {
-        console.error(err);
-        setPairingStatus("Connection failed.");
-      });
+      pollIntervalRef.current = setInterval(pollOffer, 1500);
+      pollOffer(); // Run immediately
     } catch (e) {
-      setPairingStatus("Failed to load connection server.");
+      setPairingStatus("Failed to connect.");
     }
   };
 
-  // Phone control action transmitter (triggers vibrations for physical feedback)
+  // Setup client RTCPeerConnection and register answer
+  const setupWebRTCClient = async (code: string, offer: any) => {
+    setPairingStatus("Screen found! Exchanging handshakes...");
+    try {
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" }
+        ]
+      });
+      pcRef.current = pc;
+
+      // Listen for data channel
+      pc.ondatachannel = (e) => {
+        const dc = e.channel;
+        dcRef.current = dc;
+
+        dc.onopen = () => {
+          setPeerConnected(true);
+          setPairingStatus("Connected! Use buttons below to play.");
+        };
+
+        dc.onclose = () => {
+          setPeerConnected(false);
+          setPairingStatus("Disconnected from screen.");
+        };
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Gather ICE candidates and post answer
+      pc.onicecandidate = async (e) => {
+        if (e.candidate === null) {
+          try {
+            await fetch(`${backendUrl}/api/signal/answer`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code, sdp: pc.localDescription })
+            });
+          } catch (err) {
+            setPairingStatus("Handshake answer transmission failed.");
+          }
+        }
+      };
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+    } catch (e) {
+      setPairingStatus("WebRTC client setup failed.");
+    }
+  };
+
+  // Phone control input transmitter via WebRTC DataChannel
   const transmitInput = (buttonCode: number, pressed: boolean) => {
     if (navigator.vibrate && pressed) {
       navigator.vibrate(40);
     }
-    if (connInstance && peerConnected) {
-      connInstance.send({
+    if (dcRef.current && dcRef.current.readyState === "open") {
+      dcRef.current.send(JSON.stringify({
         action: pressed ? "buttonDown" : "buttonUp",
         button: buttonCode
-      });
+      }));
     }
   };
 
@@ -449,7 +528,7 @@ export default function Mario({
                 </button>
               </div>
 
-              {/* Action Buttons A & B (Classic angled layout) */}
+              {/* Action Buttons A & B */}
               <div style={{ display: "flex", gap: "1.5rem", transform: "rotate(-10deg)" }}>
                 {/* B Button */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -547,7 +626,7 @@ export default function Mario({
         )}
 
         <div style={{ fontSize: "0.7rem", color: "#fafafa", opacity: 0.8 }}>
-          ARCADE.STUDIO NES CONTROLLER CORE P2P v1.0
+          ARCADE.STUDIO NES CONTROLLER CORE P2P v2.0 (NATIVE)
         </div>
       </div>
     );
