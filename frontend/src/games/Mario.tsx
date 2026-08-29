@@ -138,8 +138,15 @@ export default function Mario({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun.services.mozilla.com" },
-          { urls: "stun:global.stun.twilio.com:3478" }
+          {
+            urls: [
+              "turn:openrelay.metered.ca:80",
+              "turn:openrelay.metered.ca:443",
+              "turn:openrelay.metered.ca:443?transport=tcp"
+            ],
+            username: "openrelayproject",
+            credential: "openrelayproject"
+          }
         ]
       });
       pcRef.current = pc;
@@ -209,13 +216,13 @@ export default function Mario({
         }
       };
 
-      // Fallback timeout: if ICE gathering hangs, send description anyway after 1.2s
+      // Fallback timeout: if ICE gathering hangs, send description anyway after 2.0s
       const iceTimeout = setTimeout(() => {
         if (!offerSent) {
           offerSent = true;
           postOffer();
         }
-      }, 1200);
+      }, 2000);
 
       pc.onicecandidate = async (e) => {
         if (e.candidate) {
@@ -322,8 +329,15 @@ export default function Mario({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun.services.mozilla.com" },
-          { urls: "stun:global.stun.twilio.com:3478" }
+          {
+            urls: [
+              "turn:openrelay.metered.ca:80",
+              "turn:openrelay.metered.ca:443",
+              "turn:openrelay.metered.ca:443?transport=tcp"
+            ],
+            username: "openrelayproject",
+            credential: "openrelayproject"
+          }
         ]
       });
       pcRef.current = pc;
@@ -392,13 +406,13 @@ export default function Mario({
         }
       };
 
-      // Fallback timeout: if ICE gathering hangs, send description anyway after 1.2s
+      // Fallback timeout: if ICE gathering hangs, send description anyway after 2.0s
       const iceTimeout = setTimeout(() => {
         if (!answerSent) {
           answerSent = true;
           postAnswer();
         }
-      }, 1200);
+      }, 2000);
 
       pc.onicecandidate = async (e) => {
         if (e.candidate) {
