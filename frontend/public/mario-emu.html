@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NES Emulator</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 640px;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      background: #000;
+    }
+    #loading {
+      position: absolute;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsnes/1.2.1/jsnes.min.js"></script>
+</head>
+<body>
+  <div id="container">
+    <div id="loading">LOADING ROM...</div>
+    <canvas id="nes-canvas" width="256" height="240"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("nes-canvas");
+    const ctx = canvas.getContext("2d");
+    const loading = document.getElementById("loading");
+
+    // Clear canvas
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, 256, 240);
+
+    // Initialize Canvas Image Data Buffer
+    const imageData = ctx.createImageData(256, 240);
+    const pixelBuffer = new Uint32Array(imageData.data.buffer);
+
+    // Create JSNES instance
+    const nes = new jsnes.NES({
+      onFrame: function(frameBuffer) {
+        // Map 8-bit color values to Canvas pixel buffer
+        for (let i = 0; i < 256 * 240; i++) {
+          pixelBuffer[i] = 0xFF000000 | frameBuffer[i];
+        }
+        ctx.putImageData(imageData, 0, 0);
+      },
+      onAudioSample: function(left, right) {
+        if (audioCtx && audioCtx.state === "running") {
+          audioBuffer[audioWriteCursor] = left;
+          audioBuffer[audioWriteCursor + 1] = right;
+          audioWriteCursor = (audioWriteCursor + 2) % audioBufferSize;
+        }
+      }
+    });
+
+    // Sound buffers
+    let audioCtx = null;
+    let audioBuffer = null;
+    let audioWriteCursor = 0;
+    let audioReadCursor = 0;
+    const audioBufferSize = 8192;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioBuffer = new Float32Array(audioBufferSize);
+      
+      const scriptNode = audioCtx.createScriptProcessor(2048, 0, 2);
+      scriptNode.onaudioprocess = function(e) {
+        const outLeft = e.outputBuffer.getChannelData(0);
+        const outRight = e.outputBuffer.getChannelData(1);
+        
+        for (let i = 0; i < e.outputBuffer.length; i++) {
+          if (audioReadCursor === audioWriteCursor) {
+            // Buffer empty, output silence
+            outLeft[i] = 0;
+            outRight[i] = 0;
+          } else {
+            outLeft[i] = audioBuffer[audioReadCursor];
+            outRight[i] = audioBuffer[audioReadCursor + 1];
+            audioReadCursor = (audioReadCursor + 2) % audioBufferSize;
+          }
+        }
+      };
+      scriptNode.connect(audioCtx.destination);
+    }
+
+    // Key map configurations (Keyboard -> NES controller bits)
+    const keyboardControls = {
+      38: jsnes.Controller.BUTTON_UP,      // Arrow Up
+      40: jsnes.Controller.BUTTON_DOWN,    // Arrow Down
+      37: jsnes.Controller.BUTTON_LEFT,    // Arrow Left
+      39: jsnes.Controller.BUTTON_RIGHT,   // Arrow Right
+      90: jsnes.Controller.BUTTON_A,       // Z
+      88: jsnes.Controller.BUTTON_B,       // X
+      13: jsnes.Controller.BUTTON_START,   // Enter
+      16: jsnes.Controller.BUTTON_SELECT   // Shift
+    };
+
+    window.addEventListener("keydown", function(e) {
+      if (keyboardControls[e.keyCode] !== undefined) {
+        e.preventDefault();
+        nes.buttonDown(1, keyboardControls[e.keyCode]);
+      }
+    });
+
+    window.addEventListener("keyup", function(e) {
+      if (keyboardControls[e.keyCode] !== undefined) {
+        e.preventDefault();
+        nes.buttonUp(1, keyboardControls[e.keyCode]);
+      }
+    });
+
+    // Listen for parent messages (mobile controllers)
+    window.addEventListener("message", function(e) {
+      const data = e.data;
+      if (data && data.action === "buttonDown") {
+        nes.buttonDown(1, data.button);
+      } else if (data && data.action === "buttonUp") {
+        nes.buttonUp(1, data.button);
+      }
+    });
+
+    // Load ROM from local server
+    fetch("/mario.nes")
+      .then(res => {
+        if (!res.ok) throw new Error("ROM load failed");
+        return res.arrayBuffer();
+      })
+      .then(buffer => {
+        // Read ROM binary string format for JSNES
+        const bytes = new Uint8Array(buffer);
+        let romData = "";
+        for (let i = 0; i < bytes.length; i++) {
+          romData += String.fromCharCode(bytes[i]);
+        }
+        
+        nes.loadROM(romData);
+        loading.style.display = "none";
+
+        // Start emulation frame tick loop
+        function step() {
+          nes.frame();
+          requestAnimationFrame(step);
+        }
+        step();
+      })
+      .catch(e => {
+        loading.innerText = "ERROR LOADING GAME ROM";
+        console.error(e);
+      });
+
+    // Activate audio on click/key interaction
+    const initInteract = () => {
+      initAudio();
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      window.removeEventListener("click", initInteract);
+      window.removeEventListener("keydown", initInteract);
+    };
+    window.addEventListener("click", initInteract);
+    window.addEventListener("keydown", initInteract);
+  </script>
+</body>
+</html>

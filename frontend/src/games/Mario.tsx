@@ -10,6 +10,16 @@ interface MarioProps {
   refreshLeaderboard: () => void;
 }
 
+// NES button constant mappings matching JSNES values
+const NES_BUTTON_A = 0;
+const NES_BUTTON_B = 1;
+const NES_BUTTON_SELECT = 2;
+const NES_BUTTON_START = 3;
+const NES_BUTTON_UP = 4;
+const NES_BUTTON_DOWN = 5;
+const NES_BUTTON_LEFT = 6;
+const NES_BUTTON_RIGHT = 7;
+
 export default function Mario({
   onBack,
   user,
@@ -17,7 +27,18 @@ export default function Mario({
   refreshLeaderboard
 }: MarioProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [muted, setMuted] = useState(false);
+
+  // Send virtual controller event messages to JSNES iframe
+  const triggerMove = (buttonCode: number, pressed: boolean) => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({
+        action: pressed ? "buttonDown" : "buttonUp",
+        button: buttonCode
+      }, "*");
+    }
+  };
 
   return (
     <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }} className="fullscreen-compat">
@@ -40,7 +61,7 @@ export default function Mario({
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
         
-        {/* Play Space Arena (Embed NES Emulator) */}
+        {/* Play Space Arena (Embed NES Emulator hosted on our server) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", width: "100%" }}>
           <div 
             className="neo-card game-view-box" 
@@ -61,7 +82,8 @@ export default function Mario({
             }}
           >
             <iframe
-              src="https://archive.org/embed/smb_nes_4"
+              ref={iframeRef}
+              src="/mario-emu.html"
               width="100%"
               height="100%"
               frameBorder="0"
@@ -76,9 +98,92 @@ export default function Mario({
               }}
             />
           </div>
+
+          {/* Controls description */}
           <div style={{ textAlign: "center", fontSize: "0.85rem", fontWeight: "700", color: "#666", padding: "0 1rem" }}>
-            🎮 <strong>Keyboard Controls:</strong> Use <strong>Arrow Keys</strong> for D-Pad, <strong>Z / X</strong> for A / B actions, and <strong>Enter / Shift</strong> for Start / Select. Supports gamepads!
+            🎮 <strong>Keyboard Controls:</strong> Use <strong>Arrow Keys</strong> for D-Pad, <strong>Z / X</strong> for A / B actions, and <strong>Enter / Shift</strong> for Start / Select. Gamepads are supported!
           </div>
+
+          {/* Virtual Mobile Controllers Panel */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", width: "100%", maxWidth: "420px", marginTop: "0.5rem", userSelect: "none", WebkitUserSelect: "none" }}>
+            
+            {/* Action controls (D-Pad Left/Right and Jump/Run buttons) */}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "0 1rem", boxSizing: "border-box" }}>
+              {/* D-Pad */}
+              <div style={{ display: "flex", gap: "0.6rem" }}>
+                <button
+                  onTouchStart={() => triggerMove(NES_BUTTON_LEFT, true)}
+                  onTouchEnd={() => triggerMove(NES_BUTTON_LEFT, false)}
+                  onMouseDown={() => triggerMove(NES_BUTTON_LEFT, true)}
+                  onMouseUp={() => triggerMove(NES_BUTTON_LEFT, false)}
+                  className="neo-btn secondary"
+                  style={{ width: "60px", height: "55px", justifyContent: "center", fontSize: "1.2rem", fontWeight: "900", touchAction: "manipulation" }}
+                >
+                  ◀
+                </button>
+                <button
+                  onTouchStart={() => triggerMove(NES_BUTTON_RIGHT, true)}
+                  onTouchEnd={() => triggerMove(NES_BUTTON_RIGHT, false)}
+                  onMouseDown={() => triggerMove(NES_BUTTON_RIGHT, true)}
+                  onMouseUp={() => triggerMove(NES_BUTTON_RIGHT, false)}
+                  className="neo-btn secondary"
+                  style={{ width: "60px", height: "55px", justifyContent: "center", fontSize: "1.2rem", fontWeight: "900", touchAction: "manipulation" }}
+                >
+                  ▶
+                </button>
+              </div>
+
+              {/* Action Buttons (A/Jump, B/Run) */}
+              <div style={{ display: "flex", gap: "0.6rem" }}>
+                <button
+                  onTouchStart={() => triggerMove(NES_BUTTON_B, true)}
+                  onTouchEnd={() => triggerMove(NES_BUTTON_B, false)}
+                  onMouseDown={() => triggerMove(NES_BUTTON_B, true)}
+                  onMouseUp={() => triggerMove(NES_BUTTON_B, false)}
+                  className="neo-btn secondary"
+                  style={{ width: "55px", height: "55px", borderRadius: "50%", justifyContent: "center", fontSize: "1rem", fontWeight: "900", backgroundColor: "#ffd166", touchAction: "manipulation" }}
+                >
+                  B
+                </button>
+                <button
+                  onTouchStart={() => triggerMove(NES_BUTTON_A, true)}
+                  onTouchEnd={() => triggerMove(NES_BUTTON_A, false)}
+                  onMouseDown={() => triggerMove(NES_BUTTON_A, true)}
+                  onMouseUp={() => triggerMove(NES_BUTTON_A, false)}
+                  className="neo-btn accent"
+                  style={{ width: "55px", height: "55px", borderRadius: "50%", justifyContent: "center", fontSize: "1rem", fontWeight: "900", touchAction: "manipulation" }}
+                >
+                  A
+                </button>
+              </div>
+            </div>
+
+            {/* Menu controls (Select, Start) */}
+            <div style={{ display: "flex", justifyContent: "center", gap: "1rem", width: "100%", marginTop: "0.4rem" }}>
+              <button
+                onTouchStart={() => triggerMove(NES_BUTTON_SELECT, true)}
+                onTouchEnd={() => triggerMove(NES_BUTTON_SELECT, false)}
+                onMouseDown={() => triggerMove(NES_BUTTON_SELECT, true)}
+                onMouseUp={() => triggerMove(NES_BUTTON_SELECT, false)}
+                className="neo-btn secondary"
+                style={{ padding: "0.4rem 1rem", fontSize: "0.8rem", fontWeight: "800", height: "35px" }}
+              >
+                SELECT
+              </button>
+              <button
+                onTouchStart={() => triggerMove(NES_BUTTON_START, true)}
+                onTouchEnd={() => triggerMove(NES_BUTTON_START, false)}
+                onMouseDown={() => triggerMove(NES_BUTTON_START, true)}
+                onMouseUp={() => triggerMove(NES_BUTTON_START, false)}
+                className="neo-btn secondary"
+                style={{ padding: "0.4rem 1rem", fontSize: "0.8rem", fontWeight: "800", height: "35px" }}
+              >
+                START
+              </button>
+            </div>
+
+          </div>
+
         </div>
 
         {/* Highscores Board */}
