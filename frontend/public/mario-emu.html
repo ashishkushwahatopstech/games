@@ -172,9 +172,46 @@
         nes.loadROM(romData);
         loading.style.display = "none";
 
+        let lastReportedScore = -1;
+        let lastReportedWorld = -1;
+        let lastReportedLevel = -1;
+
         // Start emulation frame tick loop
         function step() {
           nes.frame();
+          
+          try {
+            const mem = nes.cpu.mem;
+            if (mem) {
+              const score = 
+                (mem[0x07D3] || 0) * 100000 +
+                (mem[0x07D4] || 0) * 10000 +
+                (mem[0x07D5] || 0) * 1000 +
+                (mem[0x07D6] || 0) * 100 +
+                (mem[0x07D7] || 0) * 10 +
+                (mem[0x07D8] || 0);
+              
+              const world = (mem[0x075F] || 0) + 1;
+              const level = (mem[0x0760] || 0) + 1;
+              const coins = mem[0x075E] || 0;
+              const lives = (mem[0x075A] || 0) + 1;
+              
+              if (score !== lastReportedScore || world !== lastReportedWorld || level !== lastReportedLevel) {
+                lastReportedScore = score;
+                lastReportedWorld = world;
+                lastReportedLevel = level;
+                window.parent.postMessage({
+                  action: "stats",
+                  score: score,
+                  world: world,
+                  level: level,
+                  coins: coins,
+                  lives: lives
+                }, "*");
+              }
+            }
+          } catch(err) {}
+
           requestAnimationFrame(step);
         }
         step();

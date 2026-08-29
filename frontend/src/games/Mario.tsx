@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { ArrowLeft, Trophy } from "lucide-react";
 import GameHUDControls from "../components/GameHUDControls";
 
@@ -23,12 +23,20 @@ const NES_BUTTON_RIGHT = 7;
 export default function Mario({
   onBack,
   user,
+  submitScore,
   leaderboard,
   refreshLeaderboard
 }: MarioProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [muted, setMuted] = useState(false);
+
+  // Live game stats extracted from the NES emulator memory
+  const [score, setScore] = useState(0);
+  const [coins, setCoins] = useState(0);
+  const [world, setWorld] = useState(1);
+  const [level, setLevel] = useState(1);
+  const [lives, setLives] = useState(3);
 
   // Send virtual controller event messages to JSNES iframe
   const triggerMove = (buttonCode: number, pressed: boolean) => {
@@ -40,14 +48,37 @@ export default function Mario({
     }
   };
 
+  // Listen to postMessages from JSNES emulator containing live game stats
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      const data = e.data;
+      if (data && data.action === "stats") {
+        setScore(data.score);
+        setCoins(data.coins);
+        setWorld(data.world);
+        setLevel(data.level);
+        setLives(data.lives);
+
+        // Submit highscore updates to the backend leaderboard dynamically
+        if (data.score > 0) {
+          submitScore(data.score).then(() => {
+            refreshLeaderboard();
+          });
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [submitScore, refreshLeaderboard]);
+
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }} className="fullscreen-compat">
-      {/* Header Panel */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: "1rem" }} className="fullscreen-compat">
+      {/* Header Panel - Centered to game width to prevent options from getting cut off */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", maxWidth: "640px", margin: "0 auto", boxSizing: "border-box", padding: "0 0.5rem" }}>
         <button onClick={onBack} className="neo-btn secondary" style={{ padding: "0.5rem 1rem" }}>
           <ArrowLeft size={18} /> BACK
         </button>
-        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem" }}>SUPER MARIO BROS</h2>
+        <h2 className="game-title-text mobile-hide" style={{ fontSize: "1rem", margin: 0 }}>SUPER MARIO BROS</h2>
         
         <GameHUDControls 
           isPaused={false}
@@ -57,6 +88,34 @@ export default function Mario({
           onToggleMute={() => setMuted(!muted)}
           containerRef={containerRef}
         />
+      </div>
+
+      {/* Live NES status HUD */}
+      <div 
+        style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          width: "100%", 
+          maxWidth: "640px", 
+          margin: "0 auto",
+          backgroundColor: "#121212", 
+          color: "#fff", 
+          padding: "0.5rem 1rem", 
+          border: "4px solid #121212",
+          boxShadow: "4px 4px 0px 0px #121212",
+          boxSizing: "border-box",
+          fontFamily: "var(--font-game)",
+          fontSize: "0.75rem",
+          fontWeight: "bold",
+          gap: "0.5rem",
+          borderRadius: "4px"
+        }}
+      >
+        <div>MARIO {score.toString().padStart(6, '0')}</div>
+        <div>🪙 x{coins.toString().padStart(2, '0')}</div>
+        <div>WORLD {world}-{level}</div>
+        <div>LIVES x{lives}</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", width: "100%" }} className="game-layout-container">
@@ -100,8 +159,8 @@ export default function Mario({
           </div>
 
           {/* Controls description */}
-          <div style={{ textAlign: "center", fontSize: "0.85rem", fontWeight: "700", color: "#666", padding: "0 1rem" }}>
-            🎮 <strong>Keyboard Controls:</strong> Use <strong>Arrow Keys</strong> for D-Pad, <strong>Z / X</strong> for A / B actions, and <strong>Enter / Shift</strong> for Start / Select. Gamepads are supported!
+          <div style={{ textAlign: "center", fontSize: "0.82rem", fontWeight: "700", color: "#666", padding: "0 1rem" }}>
+            🎮 <strong>Keyboard:</strong> Use <strong>Arrow Keys / WASD</strong> for D-Pad, <strong>Space / Z</strong> to Jump, <strong>X</strong> to Run, <strong>Enter / Shift</strong> for Start / Select.
           </div>
 
           {/* Virtual Mobile Controllers Panel */}
