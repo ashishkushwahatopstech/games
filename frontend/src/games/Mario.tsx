@@ -43,7 +43,17 @@ export default function Mario({
 }: MarioProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const peerRef = useRef<any>(null);
   const [muted, setMuted] = useState(false);
+
+  // Clean up connections on unmount
+  useEffect(() => {
+    return () => {
+      if (peerRef.current) {
+        try { peerRef.current.destroy(); } catch(e) {}
+      }
+    };
+  }, []);
 
   // Live game stats extracted from the NES emulator memory
   const [score, setScore] = useState(0);
@@ -108,6 +118,10 @@ export default function Mario({
 
   // Desktop side: host peer connection
   const hostPhoneController = async () => {
+    if (peerRef.current) {
+      try { peerRef.current.destroy(); } catch (e) {}
+    }
+
     setShowPairingModal(true);
     setPairingStatus("Generating pairing code...");
     const code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -116,6 +130,7 @@ export default function Mario({
     try {
       await loadPeerJS();
       const peer = new (window as any).Peer(`arcade-mario-${code}`, {
+        debug: 3,
         config: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
@@ -124,6 +139,7 @@ export default function Mario({
           ]
         }
       });
+      peerRef.current = peer;
 
       peer.on("open", () => {
         setPairingStatus("Waiting for phone to connect...");
@@ -172,10 +188,15 @@ export default function Mario({
 
   // Phone side: connect to desktop host peer
   const initPhoneController = async (code: string) => {
+    if (peerRef.current) {
+      try { peerRef.current.destroy(); } catch (e) {}
+    }
+
     setPairingStatus("Connecting to screen...");
     try {
       await loadPeerJS();
       const peer = new (window as any).Peer({
+        debug: 3,
         config: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
@@ -184,10 +205,12 @@ export default function Mario({
           ]
         }
       });
+      peerRef.current = peer;
 
       peer.on("open", () => {
         setPairingStatus("Searching for screen...");
-        const conn = peer.connect(`arcade-mario-${code}`, { reliable: true });
+        // Do NOT pass { reliable: true } as it freezes peer connections
+        const conn = peer.connect(`arcade-mario-${code}`);
         setConnInstance(conn);
 
         conn.on("open", () => {
