@@ -20,7 +20,8 @@ const FALLBACK_GAMES = [
   { id: "ludo", name: "Ludo Classic", is_active: 1, is_mobile_friendly: 1, url: "/ludo.html" },
   { id: "snakeladder", name: "Snakes & Ladders", is_active: 1, is_mobile_friendly: 1, url: "/snakeladder.html" },
   { id: "nutsbolts", name: "Nuts & Bolts Sort", is_active: 1, is_mobile_friendly: 1, url: "/nutsbolts.html" },
-  { id: "sudoku", name: "Sudoku Retro", is_active: 1, is_mobile_friendly: 1, url: "/sudoku.html" }
+  { id: "sudoku", name: "Sudoku Retro", is_active: 1, is_mobile_friendly: 1, url: "/sudoku.html" },
+  { id: "mario", name: "Super Mario Bros", is_active: 1, is_mobile_friendly: 1, url: "/mario.html" }
 ];
 
 export default function App() {

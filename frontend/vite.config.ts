@@ -23,6 +23,7 @@ export default defineConfig({
         snakeladder: resolve(__dirname, 'snakeladder.html'),
         nutsbolts: resolve(__dirname, 'nutsbolts.html'),
         sudoku: resolve(__dirname, 'sudoku.html'),
+        mario: resolve(__dirname, 'mario.html'),
       }
     }
   }

@@ -49,4 +49,5 @@ INSERT OR IGNORE INTO games (id, name, is_active, is_mobile_friendly) VALUES
 ('ludo', 'Ludo Classic', 1, 1),
 ('snakeladder', 'Snakes & Ladders', 1, 1),
 ('nutsbolts', 'Nuts & Bolts Sort', 1, 1),
-('sudoku', 'Sudoku Retro', 1, 1);
+('sudoku', 'Sudoku Retro', 1, 1),
+('mario', 'Super Mario Bros', 1, 1);

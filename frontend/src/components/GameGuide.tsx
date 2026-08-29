@@ -107,6 +107,19 @@ const GUIDES: { [key: string]: GuideContent } = {
     faqs: [
       { q: "How do the sliders work?", a: "Touch and drag horizontally on the controller cards below the game screen. They track your fingers smoothly." }
     ]
+  },
+  "mario": {
+    howToPlay: [
+      "Use Left & Right arrows (or A & D / on-screen buttons) to walk.",
+      "Press Space (or Up arrow / on-screen Jump button) to Jump.",
+      "Collect coins, bump question blocks, and stomp on Goombas to score points.",
+      "Avoid falling into pits or running into Goombas from the side.",
+      "Reach the castle flag pole at the end of the level to clear it and claim victory!"
+    ],
+    faqs: [
+      { q: "How do I defeat Goombas?", a: "Jump and land directly on top of them. Walking into them from the side causes you to lose the game." },
+      { q: "Is there a leaderboard?", a: "Yes, you can submit your high scores and check global rankings after completing the level or when the game ends." }
+    ]
   }
 };
 
