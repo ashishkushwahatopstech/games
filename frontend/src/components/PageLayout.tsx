@@ -303,6 +303,28 @@ export default function PageLayout({ children, pageTitle }: PageLayoutProps) {
     window.location.href = "/";
   };
 
+  const isController = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("role") === "controller";
+
+  if (isController) {
+    return (
+      <div style={{ minHeight: "100vh", position: "relative", backgroundColor: "#b22222" }}>
+        {crtEnabled && (
+          <div 
+            style={{ 
+              position: "fixed", 
+              inset: 0, 
+              pointerEvents: "none", 
+              zIndex: 99999, 
+              background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03))",
+              backgroundSize: "100% 4px, 6px 100%"
+            }}
+          />
+        )}
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative" }}>
       {crtEnabled && (
