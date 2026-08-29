@@ -185,12 +185,18 @@ export default function Mario({
 
       // Gather ICE candidates with a timeout fallback (prevents getting stuck)
       let offerSent = false;
+      const gatheredCandidates: any[] = [];
+
       const postOffer = async () => {
         try {
+          const payload = {
+            sdp: pc.localDescription,
+            candidates: gatheredCandidates
+          };
           const res = await fetch(`${backendUrl}/api/signal/offer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code, sdp: pc.localDescription })
+            body: JSON.stringify({ code, sdp: payload })
           });
           if (res.ok) {
             setPairingStatus("Pairing code registered. Scan to connect!");
@@ -212,7 +218,9 @@ export default function Mario({
       }, 1200);
 
       pc.onicecandidate = async (e) => {
-        if (e.candidate === null) {
+        if (e.candidate) {
+          gatheredCandidates.push(e.candidate);
+        } else if (e.candidate === null) {
           clearTimeout(iceTimeout);
           if (!offerSent) {
             offerSent = true;
@@ -237,8 +245,22 @@ export default function Mario({
         if (res.ok) {
           const data = await res.json() as any;
           clearInterval(pollIntervalRef.current);
+          
+          const answerPayload = data.sdp;
           if (pcRef.current) {
-            await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            await pcRef.current.setRemoteDescription(new RTCSessionDescription(answerPayload.sdp));
+            
+            // Add phone gathered candidates to connection
+            if (answerPayload.candidates) {
+              for (const cand of answerPayload.candidates) {
+                try {
+                  await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (e) {
+                  console.warn("Error adding remote ICE candidate:", e);
+                }
+              }
+            }
+            
             setPairingStatus("Handshake received! Handshaking...");
           }
         } else {
@@ -261,7 +283,7 @@ export default function Mario({
     cleanWebRTC();
 
     try {
-      let offerData = null;
+      let offerPayload = null;
       let checkCount = 0;
 
       // Poll signaling server for offer SDP from desktop
@@ -270,9 +292,9 @@ export default function Mario({
           const res = await fetch(`${backendUrl}/api/signal/offer?code=${code}`);
           if (res.ok) {
             const data = await res.json() as any;
-            offerData = data.sdp;
+            offerPayload = data.sdp;
             clearInterval(pollIntervalRef.current);
-            setupWebRTCClient(code, offerData);
+            setupWebRTCClient(code, offerPayload);
           } else {
             checkCount++;
             if (checkCount > 225) { // Poll for up to 90 seconds (225 * 400ms)
@@ -293,7 +315,7 @@ export default function Mario({
   };
 
   // Setup client RTCPeerConnection and register answer
-  const setupWebRTCClient = async (code: string, offer: any) => {
+  const setupWebRTCClient = async (code: string, offerPayload: any) => {
     setPairingStatus("Screen found! Exchanging handshakes...");
     try {
       const pc = new RTCPeerConnection({
@@ -335,16 +357,34 @@ export default function Mario({
         };
       };
 
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      // Set remote offer SDP description
+      await pc.setRemoteDescription(new RTCSessionDescription(offerPayload.sdp));
+
+      // Register host gathered candidates
+      if (offerPayload.candidates) {
+        for (const cand of offerPayload.candidates) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            console.warn("Error adding remote ICE candidate:", err);
+          }
+        }
+      }
 
       // Gather ICE candidates with a timeout fallback (prevents getting stuck)
       let answerSent = false;
+      const gatheredCandidates: any[] = [];
+
       const postAnswer = async () => {
         try {
+          const payload = {
+            sdp: pc.localDescription,
+            candidates: gatheredCandidates
+          };
           await fetch(`${backendUrl}/api/signal/answer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code, sdp: pc.localDescription })
+            body: JSON.stringify({ code, sdp: payload })
           });
           setPairingStatus("Handshake response sent. Connecting...");
         } catch (err) {
@@ -361,7 +401,9 @@ export default function Mario({
       }, 1200);
 
       pc.onicecandidate = async (e) => {
-        if (e.candidate === null) {
+        if (e.candidate) {
+          gatheredCandidates.push(e.candidate);
+        } else if (e.candidate === null) {
           clearTimeout(iceTimeout);
           if (!answerSent) {
             answerSent = true;
@@ -686,7 +728,7 @@ export default function Mario({
         )}
 
         <div style={{ fontSize: "0.7rem", color: "#fafafa", opacity: 0.8 }}>
-          ARCADE.STUDIO NES CONTROLLER CORE P2P v2.0 (NATIVE)
+          ARCADE.STUDIO NES CONTROLLER CORE P2P v2.1 (NATIVE)
         </div>
       </div>
     );
