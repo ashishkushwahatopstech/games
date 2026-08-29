@@ -143,6 +143,18 @@ export default function Mario({
       });
       pcRef.current = pc;
 
+      // Monitor connection state change
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          setPeerConnected(true);
+          setPairingStatus("Phone connected! Ready to play.");
+          setTimeout(() => setShowPairingModal(false), 1200);
+        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          setPeerConnected(false);
+          setPairingStatus("Phone connection lost.");
+        }
+      };
+
       // Create P2P data channel
       const dc = pc.createDataChannel("controller", { negotiated: false });
       dcRef.current = dc;
@@ -150,11 +162,7 @@ export default function Mario({
       dc.onopen = () => {
         setPeerConnected(true);
         setPairingStatus("Phone connected! Ready to play.");
-        
-        // Automatically close modal after pairing
-        setTimeout(() => {
-          setShowPairingModal(false);
-        }, 1500);
+        setTimeout(() => setShowPairingModal(false), 1200);
       };
 
       dc.onclose = () => {
@@ -172,23 +180,40 @@ export default function Mario({
         } catch (err) {}
       };
 
-      // Gather ICE candidates and post offer once complete (Non-Trickle ICE)
+      // Gather ICE candidates with a timeout fallback (prevents getting stuck)
+      let offerSent = false;
+      const postOffer = async () => {
+        try {
+          const res = await fetch(`${backendUrl}/api/signal/offer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, sdp: pc.localDescription })
+          });
+          if (res.ok) {
+            setPairingStatus("Pairing code registered. Scan to connect!");
+            startPollingAnswer(code);
+          } else {
+            setPairingStatus("Failed to register code.");
+          }
+        } catch (err) {
+          setPairingStatus("Signaling backend connection error.");
+        }
+      };
+
+      // Fallback timeout: if ICE gathering hangs, send description anyway after 1.2s
+      const iceTimeout = setTimeout(() => {
+        if (!offerSent) {
+          offerSent = true;
+          postOffer();
+        }
+      }, 1200);
+
       pc.onicecandidate = async (e) => {
         if (e.candidate === null) {
-          try {
-            const res = await fetch(`${backendUrl}/api/signal/offer`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ code, sdp: pc.localDescription })
-            });
-            if (res.ok) {
-              setPairingStatus("Pairing code registered. Scan to connect!");
-              startPollingAnswer(code);
-            } else {
-              setPairingStatus("Failed to register code on signaling server.");
-            }
-          } catch (err) {
-            setPairingStatus("Signaling backend connection error.");
+          clearTimeout(iceTimeout);
+          if (!offerSent) {
+            offerSent = true;
+            postOffer();
           }
         }
       };
@@ -211,11 +236,11 @@ export default function Mario({
           clearInterval(pollIntervalRef.current);
           if (pcRef.current) {
             await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
-            setPairingStatus("Handshake complete! Connecting...");
+            setPairingStatus("Handshake received! Handshaking...");
           }
         } else {
           checkCount++;
-          if (checkCount > 120) { // Timeout after 3 minutes
+          if (checkCount > 180) { // Timeout after 3 minutes
             setPairingStatus("Pairing timed out. Try again.");
             clearInterval(pollIntervalRef.current);
           }
@@ -247,8 +272,8 @@ export default function Mario({
             setupWebRTCClient(code, offerData);
           } else {
             checkCount++;
-            if (checkCount > 30) {
-              setPairingStatus("Pairing code not found or expired.");
+            if (checkCount > 60) { // Poll for up to 90 seconds
+              setPairingStatus("Pairing code not found. Retrying...");
               clearInterval(pollIntervalRef.current);
             }
           }
@@ -277,6 +302,17 @@ export default function Mario({
       });
       pcRef.current = pc;
 
+      // Monitor connection state change
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          setPeerConnected(true);
+          setPairingStatus("Connected! Use buttons below to play.");
+        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          setPeerConnected(false);
+          setPairingStatus("Disconnected from screen.");
+        }
+      };
+
       // Listen for data channel
       pc.ondatachannel = (e) => {
         const dc = e.channel;
@@ -295,17 +331,35 @@ export default function Mario({
 
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-      // Gather ICE candidates and post answer
+      // Gather ICE candidates with a timeout fallback (prevents getting stuck)
+      let answerSent = false;
+      const postAnswer = async () => {
+        try {
+          await fetch(`${backendUrl}/api/signal/answer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, sdp: pc.localDescription })
+          });
+          setPairingStatus("Handshake response sent. Connecting...");
+        } catch (err) {
+          setPairingStatus("Handshake answer transmission failed.");
+        }
+      };
+
+      // Fallback timeout: if ICE gathering hangs, send description anyway after 1.2s
+      const iceTimeout = setTimeout(() => {
+        if (!answerSent) {
+          answerSent = true;
+          postAnswer();
+        }
+      }, 1200);
+
       pc.onicecandidate = async (e) => {
         if (e.candidate === null) {
-          try {
-            await fetch(`${backendUrl}/api/signal/answer`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ code, sdp: pc.localDescription })
-            });
-          } catch (err) {
-            setPairingStatus("Handshake answer transmission failed.");
+          clearTimeout(iceTimeout);
+          if (!answerSent) {
+            answerSent = true;
+            postAnswer();
           }
         }
       };
