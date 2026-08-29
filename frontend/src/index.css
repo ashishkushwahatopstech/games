@@ -280,11 +280,12 @@ canvas {
   display: none !important;
 }
 
-/* Maximize game view boxes in fullscreen mode */
+/* Maximize game view boxes in fullscreen mode, leaving room for menus and controllers */
 .fullscreen-compat:fullscreen .game-view-box {
-  max-width: 133.33vh !important;
-  width: 100vw !important;
-  height: 96vh !important;
+  max-height: calc(100vh - 180px) !important;
+  max-width: calc((100vh - 180px) * 1.333) !important;
+  width: 100% !important;
+  height: auto !important;
 }
 
 
