@@ -282,9 +282,9 @@ canvas {
 
 /* Maximize game view boxes in fullscreen mode */
 .fullscreen-compat:fullscreen .game-view-box {
-  max-width: 80vh !important;
-  width: 90vw !important;
-  height: auto !important;
+  max-width: 133.33vh !important;
+  width: 100vw !important;
+  height: 96vh !important;
 }
 
 
