@@ -138,7 +138,8 @@ export default function Mario({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" }
+          { urls: "stun:stun.services.mozilla.com" },
+          { urls: "stun:global.stun.twilio.com:3478" }
         ]
       });
       pcRef.current = pc;
@@ -149,9 +150,11 @@ export default function Mario({
           setPeerConnected(true);
           setPairingStatus("Phone connected! Ready to play.");
           setTimeout(() => setShowPairingModal(false), 1200);
-        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setPeerConnected(false);
+        } else if (pc.connectionState === "failed") {
+          cleanWebRTC();
           setPairingStatus("Phone connection lost.");
+        } else if (pc.connectionState === "disconnected") {
+          setPairingStatus("Connection temporarily interrupted. Reconnecting...");
         }
       };
 
@@ -297,7 +300,8 @@ export default function Mario({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" }
+          { urls: "stun:stun.services.mozilla.com" },
+          { urls: "stun:global.stun.twilio.com:3478" }
         ]
       });
       pcRef.current = pc;
@@ -307,9 +311,11 @@ export default function Mario({
         if (pc.connectionState === "connected") {
           setPeerConnected(true);
           setPairingStatus("Connected! Use buttons below to play.");
-        } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setPeerConnected(false);
+        } else if (pc.connectionState === "failed") {
+          cleanWebRTC();
           setPairingStatus("Disconnected from screen.");
+        } else if (pc.connectionState === "disconnected") {
+          setPairingStatus("Reconnecting to screen...");
         }
       };
 
